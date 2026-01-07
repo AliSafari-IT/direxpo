@@ -40,7 +40,7 @@ jobs:
         run: pnpm install
 
       - name: Build
-        run: pnpm build
+        run: pnpm exmd:build
 
       - name: Publish to NPM (latest)
         run: pnpm publish --no-git-checks --access public
