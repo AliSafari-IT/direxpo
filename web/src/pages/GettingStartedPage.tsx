@@ -7,15 +7,17 @@ export default function GettingStartedPage() {
         <div className="getting-started-page">
             <div className="getting-started-container">
                 <section className="hero-section">
-                    <div className="hero-content">
-                        {!isHostedDemo ? (
-                            <div className="demo-badge" role="status" aria-live="polite">
-                                <span className="demo-indicator">Live demo</span>
-                                <p>
-                                    This view cannot export files. Run <code>pnpm dev</code> locally to unlock the full experience.
-                                </p>
+                    {!isHostedDemo ? (
+                        <div className="demo-sun-badge" role="status" aria-live="polite">
+                            <div className="demo-sun-core">
+                                <span className="demo-sun-title">Demo</span>
+                                <span className="demo-sun-text">
+                                    Run <code>pnpm dev</code> locally to export files
+                                </span>
                             </div>
-                        ) : null}
+                        </div>
+                    ) : null}
+                    <div className="hero-content">
                         <p className="hero-eyebrow">Ship documentation instantly</p>
                         <h1>Welcome to direxpo</h1>
                         <p>Convert entire repositories into polished Markdown blueprints for onboarding, reviews, and sharing.</p>
@@ -70,9 +72,16 @@ export default function GettingStartedPage() {
                         <div className="notice-steps">
                             <p><strong>To unlock exports:</strong></p>
                             <ol>
-                                <li>Clone the repository from GitHub</li>
-                                <li>Install dependencies locally</li>
-                                <li>Run the development server with <code>pnpm dev</code></li>
+                                <li>Clone the repository from <a
+                                className="hero-button"
+                                href="https://github.com/AliSafari-IT/direxpo"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                GitHub
+                            </a></li>
+                                <li>Install dependencies locally <code>pnpm install</code> or <code>npm install</code></li>
+                                <li>Run the development server with <code>pnpm dev</code> or <code>npm run dev</code></li>
                                 <li>Visit <code>http://localhost:5198</code></li>
                             </ol>
                         </div>

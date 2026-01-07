@@ -21,6 +21,7 @@
     background: linear-gradient(120deg, var(--asm-color-surface), var(--asm-color-surface-muted));
     border: 1px solid var(--asm-color-border);
     box-shadow: var(--asm-effect-shadow-xl);
+    overflow: hidden;
 }
 
 .hero-content h1 {
@@ -39,33 +40,76 @@
     font-size: var(--asm-font-size-lg);
 }
 
-.demo-badge {
-    border-radius: var(--asm-radius-2xl);
-    border: 1px solid var(--asm-color-warning-border);
-    background: linear-gradient(120deg, var(--asm-color-warning-muted), var(--asm-color-warning-50));
-    padding: var(--asm-space-5) var(--asm-space-6);
+.demo-sun-badge {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, var(--asm-color-warning-200), var(--asm-color-warning-500));
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+}
+
+.demo-sun-badge::before,
+.demo-sun-badge::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px dashed rgba(255, 255, 255, 0.5);
+    animation: spin 18s linear infinite;
+    pointer-events: none;
+}
+
+.demo-sun-badge::after {
+    inset: var(--asm-space-1);
+    border-style: solid;
+    opacity: 0.5;
+    animation-direction: reverse;
+}
+
+.demo-sun-core {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: var(--asm-color-warning-50);
+    border: 3px solid var(--asm-color-warning-400);
     display: flex;
     flex-direction: column;
-    gap: var(--asm-space-1);
-    box-shadow: var(--asm-effect-shadow-md);
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--asm-space-3);
+    gap: var(--asm-space-2);
 }
 
-.demo-indicator {
-    align-self: flex-start;
-    padding: var(--asm-space-1) var(--asm-space-3);
-    border-radius: var(--asm-radius-full);
-    background: var(--asm-color-warning-100);
+.demo-sun-title {
+    font-size: var(--asm-font-size-lg);
+    font-weight: var(--asm-font-weight-700);
     color: var(--asm-color-warning-800);
-    font-size: var(--asm-font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-weight: var(--asm-font-weight-600);
 }
 
-.demo-badge p {
-    margin: 0;
-    color: var(--asm-color-warning-800);
-    font-weight: var(--asm-font-weight-600);
+.demo-sun-text {
+    font-size: var(--asm-font-size-xs);
+    color: var(--asm-color-warning-900);
+}
+
+.demo-sun-text code {
+    font-weight: var(--asm-font-weight-700);
+    color: var(--asm-color-warning-900);
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .hero-eyebrow {
