@@ -1,6 +1,6 @@
 {
   "name": "@asafarim/direxpo",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "private": false,
   "type": "module",
   "scripts": {
@@ -37,5 +37,14 @@
     "index.d.ts",
     "LICENSE",
     "README.md"
+  ],
+  "keywords": [
+    "Directory Export",
+    "export to MD",
+    "asafarim",
+    "direxpo",
+    "cli access",
+    "tree view",
+    "Tree Structure"
   ]
 }
