@@ -6,9 +6,11 @@ import HowToPage from './pages/HowToPage';
 import GettingStartedPage from './pages/GettingStartedPage';
 import './index.css';
 
+const basename = (import.meta as any).env?.BASE_URL || '/';
+
 export default function App() {
     return (
-        <BrowserRouter>
+        <BrowserRouter basename={basename}>
             <div className="app">
                 <Navbar />
                 <Routes>
