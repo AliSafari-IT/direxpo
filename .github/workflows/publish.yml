@@ -66,8 +66,8 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-      - run: cd demo && pnpm install --frozen-lockfile
-      - run: cd demo && pnpm run build
+      - run: cd web && pnpm install --frozen-lockfile
+      - run: cd web && pnpm run build
         env:
           BASE_PATH: /direxpo/
       - name: Publish to gh-pages branch
