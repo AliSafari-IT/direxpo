@@ -15,6 +15,7 @@ export default function ExportPage() {
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState('');
     const resultRef = useRef<HTMLDivElement>(null);
+    const isHostedDemo = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname);
 
     useEffect(() => {
         if (result && resultRef.current) {
@@ -99,6 +100,16 @@ export default function ExportPage() {
         <div className="export-page">
             <div className="export-container">
                 <div className="export-header">
+                    {isHostedDemo ? (
+                        <div className="demo-sun-badge" role="status" aria-live="polite">
+                            <div className="demo-sun-core">
+                                <span className="demo-sun-title">Demo</span>
+                                <span className="demo-sun-text">
+                                    Run <code>pnpm dev</code> locally to export files
+                                </span>
+                            </div>
+                        </div>
+                    ) : null}
                     <h1>Export Your Code</h1>
                     <p>Convert your project into a beautifully formatted Markdown file</p>
                 </div>
