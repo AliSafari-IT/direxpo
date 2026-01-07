@@ -8,13 +8,21 @@
         "exmd:web": "pnpm -C web dev",
         "exmd:server": "pnpm -C server dev",
         "exmd:build": "pnpm -r build",
-        "deploy": "pnpm exmd:build && pnpm -C web deploy"
+        "deploy": "pnpm exmd:build && pnpm -C web deploy",
+        "release": "node scripts/release.js"
     },
     "devDependencies": {
+        "@types/node": "^20.10.6",
+        "tsx": "^4.7.0",
+        "typescript": "^5.3.3",
+        "gh-pages": "^6.3.0",
         "concurrently": "^8.2.2"
     },
     "repository": {
         "type": "git",
         "url": "https://github.com/AliSafari-IT/direxpo.git"
-    }
+    },
+    "homepage": "https://alisafari-it.github.io/direxpo/",
+    "author": "Ali Safari <ali@asafarim.com>",
+    "license": "MIT"
 }
