@@ -8,6 +8,7 @@
         "exmd:web": "pnpm -C web dev",
         "exmd:server": "pnpm -C server dev",
         "exmd:build": "pnpm -r build",
+        "build": "pnpm -r build",
         "deploy": "pnpm exmd:build && pnpm -C web deploy",
         "release": "node scripts/release.js"
     },
