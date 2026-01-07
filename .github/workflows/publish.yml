@@ -66,6 +66,9 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm exmd:build
+      - run: echo "Build complete. Checking web/dist contents..."
+      - run: ls -la web/dist/ || echo "web/dist does not exist"
+      - run: touch web/dist/.nojekyll
       - name: Publish to gh-pages branch
         uses: peaceiris/actions-gh-pages@v3
         with:
