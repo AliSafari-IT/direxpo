@@ -4,12 +4,13 @@ import './Navbar.css';
 export default function Navbar() {
     const location = useLocation();
     const isActive = (path: string) => location.pathname === path;
+    const logoSrc = `${import.meta.env.BASE_URL}favicon.svg`;
 
     return (
         <nav className="navbar">
             <div className="navbar-container">
                 <Link to="/" className="navbar-brand">
-                    <img src="/favicon.svg" alt="Logo" className="navbar-logo" width={50} height={50} />
+                    <img src={logoSrc} alt="Logo" className="navbar-logo" width={50} height={50} />
                     <span className="navbar-title">Direxpo</span>
                 </Link>
 
