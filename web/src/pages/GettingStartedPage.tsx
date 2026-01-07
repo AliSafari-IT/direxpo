@@ -7,7 +7,7 @@ export default function GettingStartedPage() {
         <div className="getting-started-page">
             <div className="getting-started-container">
                 <section className="hero-section">
-                    {!isHostedDemo ? (
+                    {isHostedDemo ? (
                         <div className="demo-sun-badge" role="status" aria-live="polite">
                             <div className="demo-sun-core">
                                 <span className="demo-sun-title">Demo</span>
