@@ -1,0 +1,20 @@
+{
+    "name": "@asafarim/direxpo",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "pnpm exmd:build && concurrently \"pnpm run exmd:web\" \"pnpm run exmd:server\"",
+        "exmd:web": "pnpm -C web dev",
+        "exmd:server": "pnpm -C server dev",
+        "exmd:build": "pnpm -r build",
+        "deploy": "pnpm exmd:build && pnpm -C web deploy"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/AliSafari-IT/direxpo.git"
+    }
+}
