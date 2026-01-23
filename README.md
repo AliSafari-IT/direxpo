@@ -5,6 +5,7 @@ A powerful tool for converting code projects into beautifully formatted Markdown
 ## 🚀 Features
 
 - **Modern Web Interface**: Professional multi-page SPA with ASafariM design tokens
+- **Selected Files Export**: Interactive file picker to select specific files across different folders
 - **Folder Structure Tree**: Optional hierarchical tree visualization with box-drawing characters
 - **Smart Filtering**: Filter by file types (TypeScript, CSS, Markdown, JSON, etc.)
 - **Custom Patterns**: Support for glob patterns and custom exclusions
@@ -20,16 +21,18 @@ direxpo/
 ├─ server/                    # Backend API server
 │  ├─ src/
 │  │  ├─ server.ts           # Express server with export endpoints
-│  │  ├─ file-discoverer.ts  # File discovery and filtering
-│  │  └─ tree-builder.ts     # Tree structure generation
+│  │  ├─ tree-router.ts      # Tree browsing API for file picker
+│  │  └─ export-router.ts    # Enhanced export with selected files support
 │  ├─ package.json
 │  └─ tsconfig.json
 ├─ web/                       # Frontend React application
 │  ├─ src/
 │  │  ├─ components/
-│  │  │  └─ Navbar.tsx       # Navigation component
+│  │  │  ├─ Navbar.tsx       # Navigation component
+│  │  │  ├─ FilePickerModal.tsx  # File selection modal
+│  │  │  └─ FilePickerModal.css  # Modal styling
 │  │  ├─ pages/
-│  │  │  ├─ ExportPage.tsx   # Main export interface
+│  │  │  ├─ ExportPage.tsx   # Main export interface with file picker
 │  │  │  ├─ FeaturesPage.tsx # Feature showcase
 │  │  │  ├─ HowToPage.tsx    # Usage documentation
 │  │  │  └─ GettingStartedPage.tsx # Welcome page
@@ -94,6 +97,7 @@ The modern web interface provides an intuitive way to export your projects:
 | **Glob Pattern** | Custom file patterns (when filter is set to "Custom") |
 | **Exclude Directories** | Comma-separated list of directories to exclude |
 | **Max File Size** | Maximum file size in MB |
+| **Select Files** | Open interactive file picker to choose specific files across folders |
 | **Include Folder Structure** | Add hierarchical tree at the top of the export |
 | **Tree Only** | Export only the folder structure (no file contents) |
 
@@ -174,6 +178,13 @@ Try these common scenarios:
 - Tree Only: ✓
 - Result: Lightweight folder hierarchy visualization
 
+**Scenario D: Export specific files from different folders**
+- Target Path: `./src`
+- Click "📂 Select Files..."
+- Navigate and check specific files across multiple subfolders
+- Click "Apply Selection"
+- Result: Markdown export containing only the selected files
+
 ### Web Interface Tutorial
 
 #### The Export Page
@@ -207,6 +218,40 @@ Examples:
 - **Download**: Save to your computer
 - **Copy**: Copy to clipboard
 - **Open**: Open in your default editor
+
+#### Using the File Picker (Selected Files Export)
+
+The file picker allows you to manually select specific files across different folders:
+
+**How to use:**
+1. Enter a **Target Path** (required)
+2. Click the **"📂 Select Files..."** button
+3. A modal opens showing the directory tree
+4. **Expand folders** by clicking the ▶ arrow
+5. **Check files** you want to include (checkboxes appear next to files)
+6. Use the **search box** to filter files by name
+7. Click **"Select All Visible"** to select all currently visible files
+8. Click **"Clear Selection"** to deselect all
+9. Click **"Apply Selection"** to confirm your choices
+10. The main page shows: "Selected: N files"
+11. Click **"Review / Edit"** to reopen the picker and modify selection
+12. Click **"Clear"** to remove selection and revert to normal export mode
+13. Click **"Export"** to generate markdown with only selected files
+
+**Features:**
+- **Lazy loading**: Folders load children only when expanded (efficient for large repos)
+- **Cross-folder selection**: Select files from different nested subfolders
+- **Search**: Filter visible nodes by filename
+- **Selection counter**: Shows how many files are selected
+- **Persistent selection**: Selection is preserved when reopening the modal
+- **Auto-clear**: Selection clears automatically when target path changes
+- **Respects filters**: Excluded directories and file type filters are applied
+
+**Security:**
+- All paths are validated server-side
+- Directory traversal attacks are prevented
+- Only files within the target path can be selected
+- Excluded patterns are enforced
 
 #### Understanding the Output
 
@@ -452,7 +497,30 @@ curl -X POST http://localhost:5199/api/run \
 
 **Use case**: Share a specific feature module with team members or for code review.
 
-## �💻 CLI Usage
+#### Example 5: Export Selected Files Only
+
+```bash
+# Export specific files from different folders
+curl -X POST http://localhost:5199/api/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "options": {
+      "targetPath": "./src",
+      "selectedFiles": [
+        "components/Button.tsx",
+        "components/Modal.tsx",
+        "pages/Home.tsx",
+        "utils/helpers.ts"
+      ],
+      "maxSize": 50,
+      "includeTree": true
+    }
+  }'
+```
+
+**Use case**: Export only specific files you've manually selected, ignoring all filters. Perfect for creating targeted documentation or sharing specific code snippets across different folders.
+
+## 💻 CLI Usage
 
 The tool also supports command-line usage through the `@asafarim/md-exporter` package.
 
@@ -511,10 +579,13 @@ Execute an export operation.
     "exclude": ["node_modules", "dist"],
     "maxSize": 5,
     "includeTree": true,
-    "treeOnly": false
+    "treeOnly": false,
+    "selectedFiles": ["src/components/Button.tsx", "src/pages/Home.tsx"]
   }
 }
 ```
+
+**Note:** When `selectedFiles` is provided, only those files will be exported (filter is ignored for selection, but still applied in the file picker UI).
 
 **Response:**
 
@@ -526,6 +597,42 @@ Execute an export operation.
     "bytesWritten": 15342,
     "treeOnly": false
   }
+}
+```
+
+#### GET `/api/tree/children`
+
+Browse directory tree for file selection (lazy loading).
+
+**Query Parameters:**
+
+```
+root: Target directory path (required)
+rel: Relative path from root (empty string for root)
+filter: File type filter (all, tsx, css, md, json)
+exclude: Comma-separated exclusion patterns
+```
+
+**Response:**
+
+```json
+{
+  "root": "D:\\repos\\npm-packages\\direxpo",
+  "rel": "src",
+  "nodes": [
+    {
+      "type": "dir",
+      "name": "components",
+      "relPath": "src/components",
+      "hasChildren": true
+    },
+    {
+      "type": "file",
+      "name": "App.tsx",
+      "relPath": "src/App.tsx",
+      "size": 1024
+    }
+  ]
 }
 ```
 

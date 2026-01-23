@@ -26,6 +26,9 @@ importers:
 
   server:
     dependencies:
+      '@asafarim/direxpo-core':
+        specifier: ^0.5.0
+        version: 0.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@asafarim/direxpo-server':
         specifier: ^0.4.0
         version: 0.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -98,6 +101,12 @@ packages:
 
   '@asafarim/direxpo-core@0.4.0':
     resolution: {integrity: sha512-RMPfhTCwp7X6rHr2L1anE5nJ3zTCCw8CRhUFfONBFzhfvBpGvSAGOmTdIXaiOxJFOWeHuJtp/SvLdRkRjjFwqA==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
+
+  '@asafarim/direxpo-core@0.5.0':
+    resolution: {integrity: sha512-F/UYE+Gt4pQhjNfTSDW2Jf0yovpNazKX0/FV/wzqutRHFkIV6p0u5xaYk/8ykwjn94Mf7UEHxHTOFdxlrfCd5Q==}
     peerDependencies:
       react: '>=18.0.0'
       react-dom: '>=18.0.0'
@@ -1523,6 +1532,12 @@ snapshots:
   '@asafarim/design-tokens@0.5.0': {}
 
   '@asafarim/direxpo-core@0.4.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      tsx: 4.21.0
+
+  '@asafarim/direxpo-core@0.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)

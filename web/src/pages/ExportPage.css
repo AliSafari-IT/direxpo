@@ -149,6 +149,55 @@
     padding: var(--asm-space-3) var(--asm-space-4);
 }
 
+.selection-section {
+    background: var(--asm-color-surface-muted);
+    border: 1px solid var(--asm-color-border);
+    border-radius: var(--asm-radius-md);
+    padding: var(--asm-space-4);
+    margin: var(--asm-space-4) 0;
+}
+
+.selection-section h3 {
+    margin-bottom: var(--asm-space-3);
+    color: var(--asm-color-text);
+}
+
+.selection-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--asm-space-3);
+    padding: var(--asm-space-3);
+    background: var(--asm-color-surface);
+    border-radius: var(--asm-radius-md);
+    border: 1px solid var(--asm-color-border);
+    margin-bottom: var(--asm-space-3);
+}
+
+.selection-summary span {
+    font-weight: var(--asm-font-weight-600);
+    color: var(--asm-color-text);
+}
+
+.link-button {
+    background: none;
+    border: none;
+    color: var(--asm-color-primary-500);
+    cursor: pointer;
+    font-size: var(--asm-font-size-sm);
+    text-decoration: underline;
+    padding: 0;
+}
+
+.link-button:hover {
+    color: var(--asm-color-primary-600);
+}
+
+.hint-text {
+    font-size: var(--asm-font-size-sm);
+    color: var(--asm-color-text-muted);
+    margin: var(--asm-space-2) 0 0 0;
+}
+
 @media (max-width: 768px) {
     .export-page {
         padding: var(--asm-space-4);

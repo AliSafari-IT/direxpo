@@ -1,19 +1,23 @@
 import { useState, useRef, useEffect } from 'react';
 import type { ExportOptions } from '@asafarim/md-exporter';
 import { runExport, downloadMarkdown, getMarkdownContent, openFile } from '../api';
+import FilePickerModal from '../components/FilePickerModal';
 import './ExportPage.css';
 
 export default function ExportPage() {
     const [targetPath, setTargetPath] = useState('');
     const [filter, setFilter] = useState<ExportOptions['filter']>('all');
     const [pattern, setPattern] = useState('');
-    const [exclude, setExclude] = useState('node_modules,.git,dist');
+    const [exclude, setExclude] = useState('node_modules,.git,dist,bin,obj,logs,uploads,appsettings*.*');
     const [maxSize, setMaxSize] = useState(50);
     const [includeTree, setIncludeTree] = useState(false);
     const [treeOnly, setTreeOnly] = useState(false);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState('');
+    const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [lastTargetPath, setLastTargetPath] = useState('');
     const resultRef = useRef<HTMLDivElement>(null);
     const isHostedDemo = typeof window !== 'undefined' && !['localhost', '127.0.0.1'].includes(window.location.hostname);
 
@@ -22,6 +26,13 @@ export default function ExportPage() {
             resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }, [result]);
+
+    useEffect(() => {
+        if (targetPath !== lastTargetPath && selectedFiles.size > 0) {
+            setSelectedFiles(new Set());
+            setLastTargetPath(targetPath);
+        }
+    }, [targetPath, lastTargetPath, selectedFiles.size]);
 
     const handleExport = async () => {
         if (!targetPath.trim()) {
@@ -34,6 +45,9 @@ export default function ExportPage() {
         setResult(null);
 
         try {
+            const selectedFilesArray = selectedFiles.size > 0 ? Array.from(selectedFiles) : undefined;
+            console.log('Export - selectedFiles:', selectedFilesArray);
+            
             const options: any = {
                 targetPath,
                 filter,
@@ -42,7 +56,10 @@ export default function ExportPage() {
                 maxSize,
                 includeTree: includeTree || treeOnly,
                 treeOnly,
+                selectedFiles: selectedFilesArray,
             };
+            
+            console.log('Export - options:', options);
 
             const response = await runExport(options);
             setResult(response);
@@ -215,6 +232,38 @@ export default function ExportPage() {
                             )}
                         </div>
 
+                        <div className="selection-section">
+                            <h3>File Selection</h3>
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                disabled={!targetPath.trim() || loading}
+                                className="btn-secondary"
+                                style={{ marginBottom: 'var(--asm-space-3)' }}
+                            >
+                                📂 Select Files...
+                            </button>
+                            {selectedFiles.size > 0 && (
+                                <div className="selection-summary">
+                                    <span>Selected: {selectedFiles.size} file{selectedFiles.size !== 1 ? 's' : ''}</span>
+                                    <button
+                                        onClick={() => setIsModalOpen(true)}
+                                        className="link-button"
+                                    >
+                                        Review / Edit
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedFiles(new Set())}
+                                        className="link-button"
+                                    >
+                                        Clear
+                                    </button>
+                                </div>
+                            )}
+                            {selectedFiles.size === 0 && (
+                                <p className="hint-text">Leave empty to export all files matching filters</p>
+                            )}
+                        </div>
+
                         <button
                             onClick={handleExport}
                             disabled={loading}
@@ -267,6 +316,20 @@ export default function ExportPage() {
                     )}
                 </div>
             </div>
+
+            <FilePickerModal
+                isOpen={isModalOpen}
+                targetPath={targetPath}
+                excludeCsv={exclude}
+                fileTypeFilter={filter || 'all'}
+                initialSelected={selectedFiles}
+                onCancel={() => setIsModalOpen(false)}
+                onApply={(selected) => {
+                    console.log('ExportPage - onApply received selection:', Array.from(selected));
+                    setSelectedFiles(selected);
+                    setIsModalOpen(false);
+                }}
+            />
         </div>
     );
 }
