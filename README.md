@@ -1,18 +1,41 @@
-# direxpo: a folder dir/contents to markdown exporter
+# direxpo (a Developer Tool)
 
-A powerful tool for converting code projects into beautifully formatted Markdown files with optional folder structure visualization.
+Export directory contents to Markdown with optional file tree visualization. A developer tool for code documentation, project snapshots, and sharing code snippets.
 
-## 🚀 Features
+## Quick Start
 
-- **Modern Web Interface**: Professional multi-page SPA with ASafariM design tokens
-- **Selected Files Export**: Interactive file picker to select specific files across different folders
-- **Folder Structure Tree**: Optional hierarchical tree visualization with box-drawing characters
-- **Smart Filtering**: Filter by file types (TypeScript, CSS, Markdown, JSON, etc.)
-- **Custom Patterns**: Support for glob patterns and custom exclusions
-- **Tree-Only Export**: Export just the folder structure without file contents
-- **File Size Control**: Set maximum file size limits
-- **One-Click Actions**: Download, copy to clipboard, or open in default editor
-- **Cross-Platform**: Works on Windows, macOS, and Linux
+```bash
+# Install
+pnpm install
+
+# Start dev servers (web UI + API)
+pnpm dev
+
+# Web UI: http://localhost:5198
+# API: http://localhost:5199
+```
+
+## What It Does
+
+- Export entire directories or selected files to Markdown
+- Generate folder structure trees with ASCII art
+- Filter files by type or glob patterns
+- Interactive file picker for selective exports
+- REST API for programmatic use
+- CLI support via `@asafarim/md-exporter`
+
+## Architecture
+
+```
+direxpo/
+├─ server/           # Express API server
+│  ├─ tree-router.ts     # Directory tree browsing
+│  └─ export-router.ts   # Export endpoints
+├─ web/              # React frontend
+│  ├─ FilePickerModal.tsx  # File selection UI
+│  └─ ExportPage.tsx      # Main export interface
+└─ README.md
+```
 
 ## 📁 Project Structure
 
