@@ -1,5 +1,7 @@
 # direxpo (a Developer Tool)
 
+***Convert your project into a beautifully formatted Markdown file***
+
 Export directory contents to Markdown with optional file tree visualization. A developer tool for code documentation, project snapshots, and sharing code snippets.
 
 ## Quick Start
@@ -17,13 +19,13 @@ pnpm dev
 
 ## What It Does
 
-- Export entire directories or selected files to Markdown
-- Generate folder structure trees with ASCII art
-- Filter files by type or glob patterns
-- **Advanced folder selection with lazy-loading and tri-state checkboxes**
-- Interactive file picker with hierarchical tree navigation
-- REST API for programmatic use
-- CLI support via `@asafarim/md-exporter`
+* Export entire directories or selected files to Markdown
+* Generate folder structure trees with ASCII art
+* Filter files by type or glob patterns
+* **Advanced folder selection with lazy-loading and tri-state checkboxes**
+* Interactive file picker with hierarchical tree navigation
+* REST API for programmatic use
+* CLI support via `@asafarim/md-exporter`
 
 ## Architecture
 
@@ -44,15 +46,15 @@ The file picker features sophisticated folder selection capabilities with lazy-l
 
 #### Features
 
-- **Lazy-Loading**: Directory contents are loaded on-demand for performance
-- **Tri-State Checkboxes**: Folders show three states:
-  - ✅ **Checked**: All descendants are selected
-  - 🟦 **Indeterminate**: Some descendants are selected
-  - ⬜ **Unchecked**: No descendants selected
-- **Ancestor Inheritance**: Selecting a folder automatically marks all ancestors as indeterminate
-- **Path Persistence**: Selected paths are preserved when reopening the modal
-- **Auto-Expansion**: Selected items and their ancestors are automatically expanded for visibility
-- **Exclusion Support**: Uncheck individual files under selected folders to exclude them
+* **Lazy-Loading**: Directory contents are loaded on-demand for performance
+* **Tri-State Checkboxes**: Folders show three states:
+  * ✅ **Checked**: All descendants are selected
+  * 🟦 **Indeterminate**: Some descendants are selected
+  * ⬜ **Unchecked**: No descendants selected
+* **Ancestor Inheritance**: Selecting a folder automatically marks all ancestors as indeterminate
+* **Path Persistence**: Selected paths are preserved when reopening the modal
+* **Auto-Expansion**: Selected items and their ancestors are automatically expanded for visibility
+* **Exclusion Support**: Uncheck individual files under selected folders to exclude them
 
 #### Selection Model
 
@@ -124,8 +126,8 @@ direxpo/
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm (recommended) or npm
+* Node.js 18+
+* pnpm (recommended) or npm
 
 ### Setup
 
@@ -149,8 +151,8 @@ direxpo/
    ```
 
    This will start both the web interface and API server:
-   - Web UI: <http://localhost:5198>
-   - API Server: <http://localhost:5199>
+   * Web UI: <http://localhost:5198>
+   * API Server: <http://localhost:5199>
 
 ## 🌐 Web Interface
 
@@ -158,10 +160,10 @@ The modern web interface provides an intuitive way to export your projects:
 
 ### Pages
 
-- **Export** (`/`) - Main export tool with all options
-- **Features** (`/features`) - Feature showcase and capabilities
-- **How To** (`/how-to`) - Usage guide for CLI and web interface
-- **Getting Started** (`/getting-started`) - Welcome and quick start guide
+* **Export** (`/`) - Main export tool with all options
+* **Features** (`/features`) - Feature showcase and capabilities
+* **How To** (`/how-to`) - Usage guide for CLI and web interface
+* **Getting Started** (`/getting-started`) - Welcome and quick start guide
 
 ### Export Options
 
@@ -218,8 +220,8 @@ pnpm dev
 
 The application will be available at:
 
-- **Web UI**: <http://localhost:5198>
-- **API Server**: <http://localhost:5199>
+* **Web UI**: <http://localhost:5198>
+* **API Server**: <http://localhost:5199>
 
 #### Step 2: Export Your First Project
 
@@ -227,9 +229,9 @@ The application will be available at:
 2. Navigate to the **Export** page (default landing page)
 3. Enter a target path (e.g., `./src` or `C:\Users\YourName\Projects\MyApp`)
 4. Select export options:
-   - **Filter**: Choose file types (All, TypeScript/React, CSS, Markdown, JSON)
-   - **Max File Size**: Set to 50 MB (default)
-   - **Include Folder Structure**: Check to add a tree visualization
+   * **Filter**: Choose file types (All, TypeScript/React, CSS, Markdown, JSON)
+   * **Max File Size**: Set to 50 MB (default)
+   * **Include Folder Structure**: Check to add a tree visualization
 5. Click **Export**
 6. Download the generated Markdown file or copy to clipboard
 
@@ -239,31 +241,31 @@ Try these common scenarios:
 
 **Scenario A: Export only TypeScript/React files with structure**
 
-- Target Path: `./src`
-- Filter: `TypeScript/React`
-- Include Folder Structure: ✓
-- Result: Clean markdown with folder tree and only .ts/.tsx files
+* Target Path: `./src`
+* Filter: `TypeScript/React`
+* Include Folder Structure: ✓
+* Result: Clean markdown with folder tree and only .ts/.tsx files
 
 **Scenario B: Export project documentation**
 
-- Target Path: `./docs`
-- Filter: `Markdown`
-- Exclude: `node_modules,.git`
-- Result: All markdown files in a single document
+* Target Path: `./docs`
+* Filter: `Markdown`
+* Exclude: `node_modules,.git`
+* Result: All markdown files in a single document
 
 **Scenario C: Get folder structure only (no file contents)**
 
-- Target Path: `./`
-- Tree Only: ✓
-- Result: Lightweight folder hierarchy visualization
+* Target Path: `./`
+* Tree Only: ✓
+* Result: Lightweight folder hierarchy visualization
 
 **Scenario D: Export specific files from different folders**
 
-- Target Path: `./src`
-- Click "📂 Select Files..."
-- Navigate and check specific files across multiple subfolders
-- Click "Apply Selection"
-- Result: Markdown export containing only the selected files
+* Target Path: `./src`
+* Click "📂 Select Files..."
+* Navigate and check specific files across multiple subfolders
+* Click "Apply Selection"
+* Result: Markdown export containing only the selected files
 
 ### Web Interface Tutorial
 
@@ -282,26 +284,26 @@ Examples:
 
 **2. Filter Options**
 
-- **All**: Include every file type
-- **TypeScript/React**: Only .ts, .tsx, .js, .jsx files
-- **CSS**: Only .css, .scss, .less files
-- **Markdown**: Only .md files
-- **JSON**: Only .json files
-- **Custom**: Use glob patterns for advanced filtering
+* **All**: Include every file type
+* **TypeScript/React**: Only .ts, .tsx, .js, .jsx files
+* **CSS**: Only .css, .scss, .less files
+* **Markdown**: Only .md files
+* **JSON**: Only .json files
+* **Custom**: Use glob patterns for advanced filtering
 
 **3. Advanced Options**
 
-- **Exclude Directories**: Comma-separated list (default: `node_modules,.git,dist`)
-- **Max File Size**: Files larger than this are skipped (in MB)
-- **Include Folder Structure**: Prepend a tree visualization
-- **Tree Only**: Export only the folder structure (no file contents)
+* **Exclude Directories**: Comma-separated list (default: `node_modules,.git,dist`)
+* **Max File Size**: Files larger than this are skipped (in MB)
+* **Include Folder Structure**: Prepend a tree visualization
+* **Tree Only**: Export only the folder structure (no file contents)
 
 **4. Action Buttons**
 
-- **Export**: Generate the markdown file
-- **Download**: Save to your computer
-- **Copy**: Copy to clipboard
-- **Open**: Open in your default editor
+* **Export**: Generate the markdown file
+* **Download**: Save to your computer
+* **Copy**: Copy to clipboard
+* **Open**: Open in your default editor
 
 #### Using the File Picker (Selected Files Export)
 
@@ -325,20 +327,20 @@ The file picker allows you to manually select specific files across different fo
 
 **Features:**
 
-- **Lazy loading**: Folders load children only when expanded (efficient for large repos)
-- **Cross-folder selection**: Select files from different nested subfolders
-- **Search**: Filter visible nodes by filename
-- **Selection counter**: Shows how many files are selected
-- **Persistent selection**: Selection is preserved when reopening the modal
-- **Auto-clear**: Selection clears automatically when target path changes
-- **Respects filters**: Excluded directories and file type filters are applied
+* **Lazy loading**: Folders load children only when expanded (efficient for large repos)
+* **Cross-folder selection**: Select files from different nested subfolders
+* **Search**: Filter visible nodes by filename
+* **Selection counter**: Shows how many files are selected
+* **Persistent selection**: Selection is preserved when reopening the modal
+* **Auto-clear**: Selection clears automatically when target path changes
+* **Respects filters**: Excluded directories and file type filters are applied
 
 **Security:**
 
-- All paths are validated server-side
-- Directory traversal attacks are prevented
-- Only files within the target path can be selected
-- Excluded patterns are enforced
+* All paths are validated server-side
+* Directory traversal attacks are prevented
+* Only files within the target path can be selected
+* Excluded patterns are enforced
 
 #### Understanding the Output
 
@@ -835,10 +837,10 @@ Open file in default system application.
 
 The web interface uses ASafariM design tokens for consistent styling:
 
-- **Colors**: `--asm-color-primary-500`, `--asm-color-surface`, etc.
-- **Typography**: `--asm-font-family-primary`, `--asm-font-size-lg`, etc.
-- **Spacing**: `--asm-space-4`, `--asm-space-6`, etc.
-- **Effects**: `--asm-effect-shadow-md`, `--asm-radius-lg`, etc.
+* **Colors**: `--asm-color-primary-500`, `--asm-color-surface`, etc.
+* **Typography**: `--asm-font-family-primary`, `--asm-font-size-lg`, etc.
+* **Spacing**: `--asm-space-4`, `--asm-space-6`, etc.
+* **Effects**: `--asm-effect-shadow-md`, `--asm-radius-lg`, etc.
 
 No hardcoded values are used - everything follows the design token system.
 
@@ -875,18 +877,18 @@ No hardcoded values are used - everything follows the design token system.
 
 #### Large directories slow to load
 
-- **Cause**: Lazy-loading loads on demand, but initial root load can be slow
-- **Solution**: Use exclude patterns to filter out large directories (node_modules, dist, etc.)
+* **Cause**: Lazy-loading loads on demand, but initial root load can be slow
+* **Solution**: Use exclude patterns to filter out large directories (node_modules, dist, etc.)
 
 #### Selection count inconsistent
 
-- **Cause**: Mix of selected files and folders in counting logic
-- **Solution**: Counting now properly excludes files covered by selected folders
+* **Cause**: Mix of selected files and folders in counting logic
+* **Solution**: Counting now properly excludes files covered by selected folders
 
 #### Modal state not persisting
 
-- **Cause**: State reset during `loadRootNodes` execution
-- **Solution**: Selection state is now preserved during tree loading
+* **Cause**: State reset during `loadRootNodes` execution
+* **Solution**: Selection state is now preserved during tree loading
 
 ### Performance Tips
 
@@ -899,11 +901,11 @@ No hardcoded values are used - everything follows the design token system.
 
 ### Project Structure
 
-- **Monorepo**: Uses pnpm workspaces
-- **TypeScript**: Full type safety
-- **React 18**: Modern frontend with hooks
-- **Express**: Backend API server
-- **Vite**: Fast development and build tool
+* **Monorepo**: Uses pnpm workspaces
+* **TypeScript**: Full type safety
+* **React 18**: Modern frontend with hooks
+* **Express**: Backend API server
+* **Vite**: Fast development and build tool
 
 ### Scripts
 
@@ -927,43 +929,43 @@ No hardcoded values are used - everything follows the design token system.
 
 ### Code Style
 
-- Use ASafariM design tokens for all styling
-- Follow TypeScript best practices
-- Use semantic HTML elements
-- Implement proper error handling
-- Add loading states and user feedback
+* Use ASafariM design tokens for all styling
+* Follow TypeScript best practices
+* Use semantic HTML elements
+* Implement proper error handling
+* Add loading states and user feedback
 
 ## 🔒 Security Considerations
 
-- **File Access**: Server only accesses specified target directories
-- **Path Validation**: Prevents directory traversal attacks
-- **File Size Limits**: Configurable maximum file size protection
-- **Exclusions**: Default exclusions for sensitive directories (`.git`, `node_modules`)
+* **File Access**: Server only accesses specified target directories
+* **Path Validation**: Prevents directory traversal attacks
+* **File Size Limits**: Configurable maximum file size protection
+* **Exclusions**: Default exclusions for sensitive directories (`.git`, `node_modules`)
 
 ### General Issues
 
 **"File not found" error**
 
-- Check that the target path exists
-- Use absolute paths or ensure relative paths are correct
-- Verify file permissions
+* Check that the target path exists
+* Use absolute paths or ensure relative paths are correct
+* Verify file permissions
 
 **Empty export**
 
-- Check filter settings
-- Verify exclude patterns aren't too restrictive
-- Ensure files match the size limit
+* Check filter settings
+* Verify exclude patterns aren't too restrictive
+* Ensure files match the size limit
 
 **Tree structure not showing**
 
-- Ensure `includeTree` or `treeOnly` is enabled
-- Check that files were discovered successfully
+* Ensure `includeTree` or `treeOnly` is enabled
+* Check that files were discovered successfully
 
 **Server connection issues**
 
-- Ensure API server is running on port 5199
-- Check for firewall or port conflicts
-- Verify CORS configuration
+* Ensure API server is running on port 5199
+* Check for firewall or port conflicts
+* Verify CORS configuration
 
 ### Debug Mode
 

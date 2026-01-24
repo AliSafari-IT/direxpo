@@ -38,6 +38,92 @@ export default function ExportPage() {
         }
     }, [targetPath, lastTargetPath]);
 
+    useEffect(() => {
+        if (selectionPayload) {
+            // Recalculate stats when payload changes
+            const calculateStats = async () => {
+                try {
+                    const response = await fetch('/api/discover', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            options: {
+                                targetPath,
+                                selectionPayload,
+                                filter,
+                                exclude: exclude,
+                                maxSize
+                            }
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const effectiveCount = data.files ? data.files.length : 0;
+                        const hasUnloaded = selectionPayload.selectedFolders.length > 0;
+                        
+                        setSelectionStats({
+                            effectiveFiles: effectiveCount,
+                            hasUnloadedFolders: hasUnloaded
+                        });
+                    }
+                } catch (error) {
+                    console.error('Failed to recalculate stats:', error);
+                }
+            };
+            
+            calculateStats();
+        }
+    }, [selectionPayload, targetPath, filter, exclude, maxSize]);
+
+    const removeFileFromSelection = (filePath: string) => {
+        if (!selectionPayload) return;
+        
+        const normalizedPath = filePath.replace(/\\/g, '/');
+        const isUnderSelectedFolder = selectionPayload.selectedFolders.some(folder => 
+            folder === '' || normalizedPath.startsWith(folder + '/')
+        );
+        
+        const newPayload = { ...selectionPayload };
+        
+        if (isUnderSelectedFolder) {
+            // Add to excludedFiles if under a selected folder
+            newPayload.excludedFiles = [...newPayload.excludedFiles, normalizedPath].filter((v, i, a) => a.indexOf(v) === i);
+        } else {
+            // Remove from selectedFiles if not under a selected folder
+            newPayload.selectedFiles = newPayload.selectedFiles.filter(f => f !== normalizedPath);
+        }
+        
+        setSelectionPayload(newPayload);
+    };
+
+    const removeFolderFromSelection = (folderPath: string) => {
+        if (!selectionPayload) return;
+        
+        const normalizedPath = folderPath.replace(/\\/g, '/');
+        const newPayload = { ...selectionPayload };
+        
+        // Remove folder from selected folders
+        newPayload.selectedFolders = newPayload.selectedFolders.filter(f => f !== normalizedPath);
+        
+        // Remove any excluded files that were under this folder
+        newPayload.excludedFiles = newPayload.excludedFiles.filter(file => 
+            !file.startsWith(normalizedPath + '/')
+        );
+        
+        // Remove any excluded folders that were under this folder
+        newPayload.excludedFolders = newPayload.excludedFolders.filter(folder => 
+            !folder.startsWith(normalizedPath + '/')
+        );
+        
+        // Remove any selected files that were under this folder
+        newPayload.selectedFiles = newPayload.selectedFiles.filter(file => 
+            !file.startsWith(normalizedPath + '/')
+        );
+        
+        setSelectionPayload(newPayload);
+    };
+
     const handleExport = async () => {
         if (!targetPath.trim()) {
             setError('Please enter a target path');
@@ -250,10 +336,10 @@ export default function ExportPage() {
                                 const hasSelection = !!selectionPayload && (selectionPayload.selectedFiles.length > 0 || selectionPayload.selectedFolders.length > 0);
                                 return (
                                     <>
-                                        {hasSelection && (
+                                                        {hasSelection && (
                                             <div className="selection-summary">
-                                                <div>
-                                                    <div>
+                                                <div className="selection-summary-header">
+                                                    <div className="selection-summary-title">
                                                         {selectionPayload.selectedFolders.length > 0 ? (
                                                             <>
                                                                 Selected: {selectionStats?.effectiveFiles || 0}{selectionStats?.hasUnloadedFolders ? '+' : ''} file{(selectionStats?.effectiveFiles || 0) !== 1 ? 's' : ''}, {selectionPayload.selectedFolders.length} folder{selectionPayload.selectedFolders.length !== 1 ? 's' : ''}
@@ -264,38 +350,101 @@ export default function ExportPage() {
                                                             </>
                                                         )}
                                                     </div>
-                                                    {(selectionPayload.selectedFolders.length > 0 || selectionPayload.selectedFiles.length > 0) && (
-                                                        <div style={{ fontSize: '0.85em', color: '#666', marginTop: '0.5em', maxHeight: '60px', overflow: 'auto' }}>
-                                                            {selectionPayload.selectedFolders.length > 0 && (
-                                                                <div>
-                                                                    <strong>Folders:</strong> {selectionPayload.selectedFolders.join(', ')}
-                                                                </div>
-                                                            )}
-                                                            {selectionPayload.selectedFiles.length > 0 && (
-                                                                <div>
-                                                                    <strong>Files:</strong> {selectionPayload.selectedFiles.slice(0, 3).join(', ')}{selectionPayload.selectedFiles.length > 3 ? ` +${selectionPayload.selectedFiles.length - 3} more` : ''}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                    <div className="selection-actions">
+                                                        <button
+                                                            onClick={() => setIsModalOpen(true)}
+                                                            className="link-button"
+                                                        >
+                                                            Review / Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectionPayload(null);
+                                                                setSelectionStats(null);
+                                                            }}
+                                                            className="link-button"
+                                                        >
+                                                            Clear
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <div style={{ display: 'flex', gap: '1em', marginTop: '0.5em' }}>
-                                                    <button
-                                                        onClick={() => setIsModalOpen(true)}
-                                                        className="link-button"
-                                                    >
-                                                        Review / Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectionPayload(null);
-                                                            setSelectionStats(null);
-                                                        }}
-                                                        className="link-button"
-                                                    >
-                                                        Clear
-                                                    </button>
-                                                </div>
+
+                                                {(selectionPayload.selectedFolders.length > 0 || selectionPayload.selectedFiles.length > 0 || selectionPayload.excludedFiles.length > 0) && (
+                                                    <div className="selection-details">
+                                                        {selectionPayload.selectedFolders.length > 0 && (
+                                                            <div className="selection-group">
+                                                                <div className="selection-group-label">📁 Folders</div>
+                                                                <div className="selection-tags">
+                                                                    {selectionPayload.selectedFolders.map(folder => (
+                                                                        <span key={folder} className="selection-tag">
+                                                                            {folder}
+                                                                            <button
+                                                                                onClick={() => removeFolderFromSelection(folder)}
+                                                                                className="selection-tag-remove"
+                                                                                title="Remove folder"
+                                                                                aria-label={`Remove ${folder}`}
+                                                                            >
+                                                                                ×
+                                                                            </button>
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {selectionPayload.selectedFiles.length > 0 && (
+                                                            <div className="selection-group">
+                                                                <div className="selection-group-label">📄 Files</div>
+                                                                <div className="selection-tags">
+                                                                    {selectionPayload.selectedFiles.slice(0, 5).map(file => (
+                                                                        <span key={file} className="selection-tag">
+                                                                            {file}
+                                                                            <button
+                                                                                onClick={() => removeFileFromSelection(file)}
+                                                                                className="selection-tag-remove"
+                                                                                title="Remove file"
+                                                                                aria-label={`Remove ${file}`}
+                                                                            >
+                                                                                ×
+                                                                            </button>
+                                                                        </span>
+                                                                    ))}
+                                                                    {selectionPayload.selectedFiles.length > 5 && (
+                                                                        <span className="selection-more">+{selectionPayload.selectedFiles.length - 5} more</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {selectionPayload.excludedFiles.length > 0 && (
+                                                            <div className="selection-group">
+                                                                <div className="selection-group-label">🚫 Excluded</div>
+                                                                <div className="selection-tags">
+                                                                    {selectionPayload.excludedFiles.slice(0, 5).map(file => (
+                                                                        <span key={file} className="selection-tag excluded-tag">
+                                                                            {file}
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    const newPayload = { ...selectionPayload };
+                                                                                    newPayload.excludedFiles = newPayload.excludedFiles.filter(f => f !== file);
+                                                                                    setSelectionPayload(newPayload);
+                                                                                }}
+                                                                                className="excluded-tag-restore"
+                                                                                title="Restore file"
+                                                                                aria-label={`Restore ${file}`}
+                                                                            >
+                                                                                +
+                                                                            </button>
+                                                                        </span>
+                                                                    ))}
+                                                                    {selectionPayload.excludedFiles.length > 5 && (
+                                                                        <span className="selection-more">+{selectionPayload.excludedFiles.length - 5} more</span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                         {!hasSelection && (

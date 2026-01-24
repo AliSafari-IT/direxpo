@@ -13,6 +13,7 @@ export interface SelectionPayload {
     selectedFiles: string[];
     selectedFolders: string[];
     excludedFiles: string[];
+    excludedFolders: string[];
 }
 
 export interface SelectionStats {
@@ -25,6 +26,24 @@ function normalizePath(path: string): string {
     return path.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+/g, '/');
 }
 
+function hasSelectedAncestor(path: string, selectedFolders: Set<string>): boolean {
+    for (const folder of selectedFolders) {
+        if (folder !== '' && path.startsWith(folder + '/')) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function hasExcludedAncestor(path: string, excludedFolders: Set<string>): boolean {
+    for (const folder of excludedFolders) {
+        if (folder !== '' && path.startsWith(folder + '/')) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function isFolderEffectivelySelected(folderPath: string, selectedFolders: Set<string>): boolean {
     if (selectedFolders.has(folderPath)) return true;
     for (const folder of selectedFolders) {
@@ -33,6 +52,11 @@ function isFolderEffectivelySelected(folderPath: string, selectedFolders: Set<st
         }
     }
     return false;
+}
+
+function isFolderEffectivelyExcluded(folderPath: string, excludedFolders: Set<string>): boolean {
+    if (excludedFolders.has(folderPath)) return true;
+    return hasExcludedAncestor(folderPath, excludedFolders);
 }
 
 
@@ -73,6 +97,9 @@ export default function FilePickerModal({
     const [excludedFiles, setExcludedFiles] = useState<Set<string>>(
         new Set(initialPayload?.excludedFiles || [])
     );
+    const [excludedFolders, setExcludedFolders] = useState<Set<string>>(
+        new Set(initialPayload?.excludedFolders || [])
+    );
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
@@ -83,10 +110,12 @@ export default function FilePickerModal({
                 setSelectedFiles(new Set());
                 setSelectedFolders(new Set());
                 setExcludedFiles(new Set());
+                setExcludedFolders(new Set());
             } else {
                 setSelectedFiles(new Set((initialPayload.selectedFiles || []).map(normalizePath)));
                 setSelectedFolders(new Set((initialPayload.selectedFolders || []).map(normalizePath)));
                 setExcludedFiles(new Set((initialPayload.excludedFiles || []).map(normalizePath)));
+                setExcludedFolders(new Set((initialPayload.excludedFolders || []).map(normalizePath)));
             }
             loadRootNodes();
             if (initialPayload && (initialPayload.selectedFolders.length > 0 || initialPayload.selectedFiles.length > 0)) {
@@ -182,11 +211,16 @@ export default function FilePickerModal({
             setError(err instanceof Error ? err.message : 'Failed to load directory');
         }
     };
+    
+    const loadTree = () => {
+        loadRootNodes();
+    };
 
     const isFileEffectivelySelected = (filePath: string): boolean => {
         if (excludedFiles.has(filePath)) return false;
+        if (hasExcludedAncestor(filePath, excludedFolders)) return false;
         if (selectedFiles.has(filePath)) return true;
-        return isFolderEffectivelySelected(filePath, selectedFolders);
+        return isFolderEffectivelySelected(filePath, selectedFolders) && !hasExcludedAncestor(filePath, excludedFolders);
     };
 
     const getAllLoadedFilesUnder = (folderPath: string): string[] => {
@@ -250,24 +284,66 @@ export default function FilePickerModal({
         const newFolders = new Set(selectedFolders);
         const newFiles = new Set(selectedFiles);
         const newExcluded = new Set(excludedFiles);
+        const newExcludedFolders = new Set(excludedFolders);
 
-        if (selectedFolders.has(normalizedFolder)) {
+        const hasAncestorFolder = hasSelectedAncestor(normalizedFolder, selectedFolders);
+        const isDirectlySelected = selectedFolders.has(normalizedFolder);
+
+        if (hasAncestorFolder) {
+            // Folder is covered by a selected ancestor: toggle exclusion
+            if (newExcludedFolders.has(normalizedFolder)) {
+                // Remove exclusion
+                newExcludedFolders.delete(normalizedFolder);
+                // Clean up any excludedFiles under this folder
+                Array.from(newExcluded).forEach(path => {
+                    if (path.startsWith(normalizedFolder + '/')) {
+                        newExcluded.delete(path);
+                    }
+                });
+            } else {
+                // Add exclusion
+                newExcludedFolders.add(normalizedFolder);
+                // Clean up selectedFiles under this folder
+                Array.from(newFiles).forEach(path => {
+                    if (path.startsWith(normalizedFolder + '/')) {
+                        newFiles.delete(path);
+                    }
+                });
+            }
+        } else if (isDirectlySelected) {
+            // Folder is explicitly selected: deselect it
             newFolders.delete(normalizedFolder);
-            Array.from(excludedFiles).forEach(path => {
+            // Clean up excludedFiles under this folder
+            Array.from(newExcluded).forEach(path => {
                 if (path.startsWith(normalizedFolder + '/') || path === normalizedFolder) {
                     newExcluded.delete(path);
                 }
             });
+            // Clean up excludedFolders under this folder
+            Array.from(newExcludedFolders).forEach(path => {
+                if (path.startsWith(normalizedFolder + '/') || path === normalizedFolder) {
+                    newExcludedFolders.delete(path);
+                }
+            });
         } else {
+            // Folder is not selected: select it
             newFolders.add(normalizedFolder);
-            Array.from(selectedFiles).forEach(path => {
+            // Clean up selectedFiles under this folder (redundant with folder selection)
+            Array.from(newFiles).forEach(path => {
                 if (path.startsWith(normalizedFolder + '/') || path === normalizedFolder) {
                     newFiles.delete(path);
                 }
             });
-            Array.from(excludedFiles).forEach(path => {
+            // Clean up excludedFiles under this folder
+            Array.from(newExcluded).forEach(path => {
                 if (path.startsWith(normalizedFolder + '/') || path === normalizedFolder) {
                     newExcluded.delete(path);
+                }
+            });
+            // Clean up excludedFolders under this folder
+            Array.from(newExcludedFolders).forEach(path => {
+                if (path.startsWith(normalizedFolder + '/') || path === normalizedFolder) {
+                    newExcludedFolders.delete(path);
                 }
             });
         }
@@ -275,12 +351,26 @@ export default function FilePickerModal({
         setSelectedFolders(newFolders);
         setSelectedFiles(newFiles);
         setExcludedFiles(newExcluded);
+        setExcludedFolders(newExcludedFolders);
     };
 
     const getFolderCheckState = (folderPath: string): { checked: boolean; indeterminate: boolean } => {
+        // If folder is effectively excluded, show as unchecked
+        if (isFolderEffectivelyExcluded(folderPath, excludedFolders)) {
+            return { checked: false, indeterminate: false };
+        }
+
         const isEffectivelySelected = isFolderEffectivelySelected(folderPath, selectedFolders);
         
         if (isEffectivelySelected) {
+            // Check if any descendant is excluded
+            const hasExcludedDescendantFolder = Array.from(excludedFolders).some(f => f.startsWith(folderPath + '/'));
+            const hasExcludedDescendantFile = Array.from(excludedFiles).some(f => f.startsWith(folderPath + '/'));
+            
+            if (hasExcludedDescendantFolder || hasExcludedDescendantFile) {
+                return { checked: true, indeterminate: true };
+            }
+
             const loadedFiles = getAllLoadedFilesUnder(folderPath);
             if (loadedFiles.length === 0) {
                 return { checked: true, indeterminate: false };
@@ -295,9 +385,10 @@ export default function FilePickerModal({
 
         const hasSelectedDescendantFolder = Array.from(selectedFolders).some(f => f.startsWith(folderPath + '/'));
         const hasSelectedDescendantFile = Array.from(selectedFiles).some(f => f.startsWith(folderPath + '/'));
+        const hasExcludedDescendantFolder = Array.from(excludedFolders).some(f => f.startsWith(folderPath + '/'));
         const hasExcludedDescendantFile = Array.from(excludedFiles).some(f => f.startsWith(folderPath + '/'));
         
-        if (hasSelectedDescendantFolder || hasSelectedDescendantFile || hasExcludedDescendantFile) {
+        if (hasSelectedDescendantFolder || hasSelectedDescendantFile || hasExcludedDescendantFolder || hasExcludedDescendantFile) {
             return { checked: false, indeterminate: true };
         }
 
@@ -334,6 +425,7 @@ export default function FilePickerModal({
         setSelectedFiles(new Set());
         setSelectedFolders(new Set());
         setExcludedFiles(new Set());
+        setExcludedFolders(new Set());
     };
 
     const getEffectiveSelectionCount = (): { count: number; hasUnloadedFolders: boolean } => {
@@ -343,7 +435,7 @@ export default function FilePickerModal({
 
         for (const file of selectedFiles) {
             const hasAncestor = Array.from(selectedFolders).some(f => file.startsWith(f + '/'));
-            if (!hasAncestor && !excludedFiles.has(file)) {
+            if (!hasAncestor && !excludedFiles.has(file) && !hasExcludedAncestor(file, excludedFolders)) {
                 countedFiles.add(file);
                 count++;
             }
@@ -358,14 +450,16 @@ export default function FilePickerModal({
             let hasUnloadedSubfolders = false;
             for (const child of children) {
                 if (child.type === 'file') {
-                    if (!excludedFiles.has(child.relPath) && !countedFiles.has(child.relPath)) {
+                    if (!excludedFiles.has(child.relPath) && !hasExcludedAncestor(child.relPath, excludedFolders) && !countedFiles.has(child.relPath)) {
                         countedFiles.add(child.relPath);
                         count++;
                     }
                 } else {
-                    const isUnloaded = countFilesUnder(child.relPath);
-                    if (isUnloaded) {
-                        hasUnloadedSubfolders = true;
+                    if (!isFolderEffectivelyExcluded(child.relPath, excludedFolders)) {
+                        const isUnloaded = countFilesUnder(child.relPath);
+                        if (isUnloaded) {
+                            hasUnloadedSubfolders = true;
+                        }
                     }
                 }
             }
@@ -387,7 +481,8 @@ export default function FilePickerModal({
         const payload: SelectionPayload = {
             selectedFiles: Array.from(selectedFiles),
             selectedFolders: Array.from(selectedFolders),
-            excludedFiles: Array.from(excludedFiles)
+            excludedFiles: Array.from(excludedFiles),
+            excludedFolders: Array.from(excludedFolders)
         };
         const stats: SelectionStats = {
             effectiveFiles: count,
@@ -485,8 +580,18 @@ export default function FilePickerModal({
             />
         );
     }
+    
+    const refreshTree = () => {
+        setExpandedDirs(new Set<string>());
+        setLoadedChildren(new Map<string, TreeNode[]>());
+        loadTree();
+    };
+
+    // Refresh emoji
+    const refreshIcon = '🔄';
 
     if (!isOpen) return null;
+
 
     return (
         <div className="modal-overlay" onClick={onCancel}>
@@ -516,12 +621,20 @@ export default function FilePickerModal({
                     </div>
 
                     <div className="modal-actions">
-                        <button onClick={() => selectAll(rootNodes)} className="btn-secondary">
+                        <div className="modal-actions-left">
+                            <button onClick={() => selectAll(rootNodes)} className="btn-secondary">
                             Select All Visible
                         </button>
                         <button onClick={clearSelection} className="btn-secondary">
                             Clear Selection
                         </button>
+                        </div>
+                        <div className="modal-actions-right">
+                            {/* TODO: Add refresh tree icon button */}
+                            <button onClick={refreshTree} className="btn-ghost">
+                                {'🔄'}
+                            </button>
+                        </div>
                     </div>
 
                     {error && <div className="alert alert-error">{error}</div>}

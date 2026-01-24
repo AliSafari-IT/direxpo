@@ -1,6 +1,6 @@
 .navbar {
     background: var(--asm-color-surface);
-    border-bottom: 1px solid var(--asm-color-border);
+    border-bottom: var(--asm-border-hairline) solid var(--asm-color-border);
     position: sticky;
     top: 0;
     z-index: var(--asm-z-sticky);
@@ -80,6 +80,14 @@
     height: 2px;
     background: var(--asm-color-primary-500);
     border-radius: 1px;
+}
+
+.navbar-link.theme-toggle{
+    background: var(--asm-color-surface-muted);
+    border-radius: var(--asm-radius-md);
+    padding: var(--asm-space-2) var(--asm-space-3);
+    color: var(--asm-color-text-muted);
+    transition: all var(--asm-motion-duration-fast) var(--asm-motion-easing-standard);
 }
 
 @media (max-width: 768px) {

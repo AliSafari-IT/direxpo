@@ -49,7 +49,7 @@
     grid-template-columns: 60px 1fr;
     gap: var(--asm-space-4);
     background: var(--asm-color-surface);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
     border-radius: var(--asm-radius-lg);
     padding: var(--asm-space-6);
     transition: all var(--asm-motion-duration-fast) var(--asm-motion-easing-standard);
@@ -118,7 +118,7 @@
 
 .cli-section {
     background: var(--asm-color-surface);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
     border-radius: var(--asm-radius-lg);
     padding: var(--asm-space-6);
 }
@@ -135,7 +135,7 @@
 
 .cli-section pre {
     background: var(--asm-color-surface-muted);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
     border-radius: var(--asm-radius-md);
     padding: var(--asm-space-4);
     overflow-x: auto;
@@ -161,7 +161,7 @@
     padding: var(--asm-space-3);
     background: var(--asm-color-surface-muted);
     border-radius: var(--asm-radius-md);
-    border-left: 3px solid var(--asm-color-primary-500);
+    border-left: var(--asm-border-thick) solid var(--asm-color-primary-500);
 }
 
 .option-name code {
@@ -182,7 +182,7 @@
 
 .tip-card {
     background: var(--asm-color-surface);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
     border-radius: var(--asm-radius-lg);
     padding: var(--asm-space-6);
     text-align: center;

@@ -77,7 +77,7 @@ select,
 textarea {
     width: 100%;
     padding: var(--asm-space-3);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
     border-radius: var(--asm-radius-md);
     font-size: var(--asm-font-size-md);
     font-family: inherit;
@@ -128,7 +128,7 @@ button:disabled {
 .btn-secondary {
     background: var(--asm-color-surface-muted);
     color: var(--asm-color-text);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
@@ -190,7 +190,7 @@ label {
 /* Cards */
 .card {
     background: var(--asm-color-surface);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
     border-radius: var(--asm-radius-lg);
     padding: var(--asm-space-6);
     box-shadow: var(--asm-effect-shadow-sm);
@@ -207,7 +207,7 @@ label {
     padding: var(--asm-space-4);
     border-radius: var(--asm-radius-md);
     margin-bottom: var(--asm-space-4);
-    border-left: 4px solid;
+    border-left: var(--asm-border-thick) solid;
 }
 
 .alert-success {
@@ -251,7 +251,7 @@ pre {
     border-radius: var(--asm-radius-md);
     overflow-x: auto;
     margin-bottom: var(--asm-space-4);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
 }
 
 pre code {

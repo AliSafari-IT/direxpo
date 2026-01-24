@@ -37,7 +37,7 @@
 
 .feature-card {
     background: var(--asm-color-surface);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
     border-radius: var(--asm-radius-lg);
     padding: var(--asm-space-6);
     transition: all var(--asm-motion-duration-normal) var(--asm-motion-easing-standard);
@@ -103,7 +103,7 @@
 
 .benefit-item {
     background: var(--asm-color-surface);
-    border: 1px solid var(--asm-color-border);
+    border: var(--asm-border-hairline) solid var(--asm-color-border);
     border-radius: var(--asm-radius-lg);
     padding: var(--asm-space-6);
     text-align: center;
@@ -127,7 +127,7 @@
 
 .option-item {
     background: var(--asm-color-surface);
-    border-left: 4px solid var(--asm-color-primary-500);
+    border-left: var(--asm-border-thick) solid var(--asm-color-primary-500);
     border-radius: var(--asm-radius-md);
     padding: var(--asm-space-6);
     transition: all var(--asm-motion-duration-fast) var(--asm-motion-easing-standard);
