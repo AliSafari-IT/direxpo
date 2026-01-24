@@ -587,11 +587,7 @@ export default function FilePickerModal({
         loadTree();
     };
 
-    // Refresh emoji
-    const refreshIcon = '🔄';
-
     if (!isOpen) return null;
-
 
     return (
         <div className="modal-overlay" onClick={onCancel}>
