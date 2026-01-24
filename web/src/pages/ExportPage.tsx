@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { ExportOptions } from '@asafarim/md-exporter';
 import { runExport, downloadMarkdown, getMarkdownContent, openFile } from '../api';
-import FilePickerModal from '../components/FilePickerModal';
+import FilePickerModal, { type SelectionPayload, type SelectionStats } from '../components/FilePickerModal';
 import './ExportPage.css';
 
 export default function ExportPage() {
@@ -15,7 +15,8 @@ export default function ExportPage() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState('');
-    const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+    const [selectionPayload, setSelectionPayload] = useState<SelectionPayload | null>(null);
+    const [selectionStats, setSelectionStats] = useState<SelectionStats | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [lastTargetPath, setLastTargetPath] = useState('');
     const resultRef = useRef<HTMLDivElement>(null);
@@ -28,11 +29,14 @@ export default function ExportPage() {
     }, [result]);
 
     useEffect(() => {
-        if (targetPath !== lastTargetPath && selectedFiles.size > 0) {
-            setSelectedFiles(new Set());
+        if (targetPath !== lastTargetPath) {
+            if (selectionPayload) {
+                setSelectionPayload(null);
+                setSelectionStats(null);
+            }
             setLastTargetPath(targetPath);
         }
-    }, [targetPath, lastTargetPath, selectedFiles.size]);
+    }, [targetPath, lastTargetPath]);
 
     const handleExport = async () => {
         if (!targetPath.trim()) {
@@ -45,9 +49,6 @@ export default function ExportPage() {
         setResult(null);
 
         try {
-            const selectedFilesArray = selectedFiles.size > 0 ? Array.from(selectedFiles) : undefined;
-            console.log('Export - selectedFiles:', selectedFilesArray);
-            
             const options: any = {
                 targetPath,
                 filter,
@@ -56,8 +57,11 @@ export default function ExportPage() {
                 maxSize,
                 includeTree: includeTree || treeOnly,
                 treeOnly,
-                selectedFiles: selectedFilesArray,
             };
+
+            if (selectionPayload) {
+                options.selectionPayload = selectionPayload;
+            }
             
             console.log('Export - options:', options);
 
@@ -242,26 +246,64 @@ export default function ExportPage() {
                             >
                                 📂 Select Files...
                             </button>
-                            {selectedFiles.size > 0 && (
-                                <div className="selection-summary">
-                                    <span>Selected: {selectedFiles.size} file{selectedFiles.size !== 1 ? 's' : ''}</span>
-                                    <button
-                                        onClick={() => setIsModalOpen(true)}
-                                        className="link-button"
-                                    >
-                                        Review / Edit
-                                    </button>
-                                    <button
-                                        onClick={() => setSelectedFiles(new Set())}
-                                        className="link-button"
-                                    >
-                                        Clear
-                                    </button>
-                                </div>
-                            )}
-                            {selectedFiles.size === 0 && (
-                                <p className="hint-text">Leave empty to export all files matching filters</p>
-                            )}
+                            {(() => {
+                                const hasSelection = !!selectionPayload && (selectionPayload.selectedFiles.length > 0 || selectionPayload.selectedFolders.length > 0);
+                                return (
+                                    <>
+                                        {hasSelection && (
+                                            <div className="selection-summary">
+                                                <div>
+                                                    <div>
+                                                        {selectionPayload.selectedFolders.length > 0 ? (
+                                                            <>
+                                                                Selected: {selectionStats?.effectiveFiles || 0}{selectionStats?.hasUnloadedFolders ? '+' : ''} file{(selectionStats?.effectiveFiles || 0) !== 1 ? 's' : ''}, {selectionPayload.selectedFolders.length} folder{selectionPayload.selectedFolders.length !== 1 ? 's' : ''}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                Selected: {selectionPayload.selectedFiles.length} file{selectionPayload.selectedFiles.length !== 1 ? 's' : ''}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    {(selectionPayload.selectedFolders.length > 0 || selectionPayload.selectedFiles.length > 0) && (
+                                                        <div style={{ fontSize: '0.85em', color: '#666', marginTop: '0.5em', maxHeight: '60px', overflow: 'auto' }}>
+                                                            {selectionPayload.selectedFolders.length > 0 && (
+                                                                <div>
+                                                                    <strong>Folders:</strong> {selectionPayload.selectedFolders.join(', ')}
+                                                                </div>
+                                                            )}
+                                                            {selectionPayload.selectedFiles.length > 0 && (
+                                                                <div>
+                                                                    <strong>Files:</strong> {selectionPayload.selectedFiles.slice(0, 3).join(', ')}{selectionPayload.selectedFiles.length > 3 ? ` +${selectionPayload.selectedFiles.length - 3} more` : ''}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div style={{ display: 'flex', gap: '1em', marginTop: '0.5em' }}>
+                                                    <button
+                                                        onClick={() => setIsModalOpen(true)}
+                                                        className="link-button"
+                                                    >
+                                                        Review / Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectionPayload(null);
+                                                            setSelectionStats(null);
+                                                        }}
+                                                        className="link-button"
+                                                    >
+                                                        Clear
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {!hasSelection && (
+                                            <p className="hint-text">Leave empty to export all files matching filters</p>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
 
                         <button
@@ -322,11 +364,12 @@ export default function ExportPage() {
                 targetPath={targetPath}
                 excludeCsv={exclude}
                 fileTypeFilter={filter || 'all'}
-                initialSelected={selectedFiles}
+                initialPayload={selectionPayload}
                 onCancel={() => setIsModalOpen(false)}
-                onApply={(selected) => {
-                    console.log('ExportPage - onApply received selection:', Array.from(selected));
-                    setSelectedFiles(selected);
+                onApply={(payload, stats) => {
+                    console.log('ExportPage - onApply received payload:', payload, 'stats:', stats);
+                    setSelectionPayload(payload);
+                    setSelectionStats(stats);
                     setIsModalOpen(false);
                 }}
             />

@@ -20,7 +20,8 @@ pnpm dev
 - Export entire directories or selected files to Markdown
 - Generate folder structure trees with ASCII art
 - Filter files by type or glob patterns
-- Interactive file picker for selective exports
+- **Advanced folder selection with lazy-loading and tri-state checkboxes**
+- Interactive file picker with hierarchical tree navigation
 - REST API for programmatic use
 - CLI support via `@asafarim/md-exporter`
 
@@ -35,6 +36,57 @@ direxpo/
 │  ├─ FilePickerModal.tsx  # File selection UI
 │  └─ ExportPage.tsx      # Main export interface
 └─ README.md
+```
+
+### Advanced Folder Selection
+
+The file picker features sophisticated folder selection capabilities with lazy-loading and tri-state checkboxes:
+
+#### Features
+
+- **Lazy-Loading**: Directory contents are loaded on-demand for performance
+- **Tri-State Checkboxes**: Folders show three states:
+  - ✅ **Checked**: All descendants are selected
+  - 🟦 **Indeterminate**: Some descendants are selected
+  - ⬜ **Unchecked**: No descendants selected
+- **Ancestor Inheritance**: Selecting a folder automatically marks all ancestors as indeterminate
+- **Path Persistence**: Selected paths are preserved when reopening the modal
+- **Auto-Expansion**: Selected items and their ancestors are automatically expanded for visibility
+- **Exclusion Support**: Uncheck individual files under selected folders to exclude them
+
+#### Selection Model
+
+The picker uses a hybrid selection model:
+
+```typescript
+interface SelectionPayload {
+  selectedFiles: string[];    // Explicitly selected files
+  selectedFolders: string[];  // Selected folders (implies all contents)
+  excludedFiles: string[];    // Files excluded from selected folders
+}
+```
+
+#### UI Behavior
+
+1. **Folder Selection**: Checking a folder selects all its contents
+2. **File Exclusion**: Unchecking a file under a selected folder adds it to exclusions
+3. **Ancestor States**: Parent folders show indeterminate when children are partially selected
+4. **Lazy Loading**: Children are checked immediately when loaded if parent is selected
+5. **Path Visibility**: Selected paths are visible in the export summary
+
+#### Example Workflow
+
+```bash
+# 1. Click "Select Files..." to open the picker
+# 2. Check a folder (e.g., "src/components")
+#    - Folder shows as checked
+#    - All ancestor folders show indeterminate
+#    - Apply button shows "X+ files" (X = loaded files, + = unloaded)
+# 3. Click "Apply Selection"
+# 4. Export page shows: "Selected: X+ files, 1 folder"
+# 5. Click "Review / Edit" to modify selection
+#    - Modal opens with previous selection restored
+#    - Selected folder and ancestors are expanded for visibility
 ```
 
 ## 📁 Project Structure
@@ -120,7 +172,7 @@ The modern web interface provides an intuitive way to export your projects:
 | **Glob Pattern** | Custom file patterns (when filter is set to "Custom") |
 | **Exclude Directories** | Comma-separated list of directories to exclude |
 | **Max File Size** | Maximum file size in MB |
-| **Select Files** | Open interactive file picker to choose specific files across folders |
+| **Select Files** | Open interactive file picker with advanced folder selection and tri-state checkboxes |
 | **Include Folder Structure** | Add hierarchical tree at the top of the export |
 | **Tree Only** | Export only the folder structure (no file contents) |
 
@@ -165,12 +217,13 @@ pnpm dev
 ```
 
 The application will be available at:
-- **Web UI**: http://localhost:5198
-- **API Server**: http://localhost:5199
+
+- **Web UI**: <http://localhost:5198>
+- **API Server**: <http://localhost:5199>
 
 #### Step 2: Export Your First Project
 
-1. Open http://localhost:5198 in your browser
+1. Open <http://localhost:5198> in your browser
 2. Navigate to the **Export** page (default landing page)
 3. Enter a target path (e.g., `./src` or `C:\Users\YourName\Projects\MyApp`)
 4. Select export options:
@@ -185,23 +238,27 @@ The application will be available at:
 Try these common scenarios:
 
 **Scenario A: Export only TypeScript/React files with structure**
+
 - Target Path: `./src`
 - Filter: `TypeScript/React`
 - Include Folder Structure: ✓
 - Result: Clean markdown with folder tree and only .ts/.tsx files
 
 **Scenario B: Export project documentation**
+
 - Target Path: `./docs`
 - Filter: `Markdown`
 - Exclude: `node_modules,.git`
 - Result: All markdown files in a single document
 
 **Scenario C: Get folder structure only (no file contents)**
+
 - Target Path: `./`
 - Tree Only: ✓
 - Result: Lightweight folder hierarchy visualization
 
 **Scenario D: Export specific files from different folders**
+
 - Target Path: `./src`
 - Click "📂 Select Files..."
 - Navigate and check specific files across multiple subfolders
@@ -215,6 +272,7 @@ Try these common scenarios:
 The main export interface has four sections:
 
 **1. Target Path Input**
+
 ```
 Enter the directory you want to export.
 Examples:
@@ -223,6 +281,7 @@ Examples:
 ```
 
 **2. Filter Options**
+
 - **All**: Include every file type
 - **TypeScript/React**: Only .ts, .tsx, .js, .jsx files
 - **CSS**: Only .css, .scss, .less files
@@ -231,12 +290,14 @@ Examples:
 - **Custom**: Use glob patterns for advanced filtering
 
 **3. Advanced Options**
+
 - **Exclude Directories**: Comma-separated list (default: `node_modules,.git,dist`)
 - **Max File Size**: Files larger than this are skipped (in MB)
 - **Include Folder Structure**: Prepend a tree visualization
 - **Tree Only**: Export only the folder structure (no file contents)
 
 **4. Action Buttons**
+
 - **Export**: Generate the markdown file
 - **Download**: Save to your computer
 - **Copy**: Copy to clipboard
@@ -247,6 +308,7 @@ Examples:
 The file picker allows you to manually select specific files across different folders:
 
 **How to use:**
+
 1. Enter a **Target Path** (required)
 2. Click the **"📂 Select Files..."** button
 3. A modal opens showing the directory tree
@@ -262,6 +324,7 @@ The file picker allows you to manually select specific files across different fo
 13. Click **"Export"** to generate markdown with only selected files
 
 **Features:**
+
 - **Lazy loading**: Folders load children only when expanded (efficient for large repos)
 - **Cross-folder selection**: Select files from different nested subfolders
 - **Search**: Filter visible nodes by filename
@@ -271,6 +334,7 @@ The file picker allows you to manually select specific files across different fo
 - **Respects filters**: Excluded directories and file type filters are applied
 
 **Security:**
+
 - All paths are validated server-side
 - Directory traversal attacks are prevented
 - Only files within the target path can be selected
@@ -543,6 +607,71 @@ curl -X POST http://localhost:5199/api/run \
 
 **Use case**: Export only specific files you've manually selected, ignoring all filters. Perfect for creating targeted documentation or sharing specific code snippets across different folders.
 
+#### Example 6: Export with Advanced Folder Selection
+
+```bash
+# Export selected folders and files with exclusions
+curl -X POST http://localhost:5199/api/run \
+  -H "Content-Type: application/json" \
+  -d '{
+    "options": {
+      "targetPath": "./src",
+      "selectionPayload": {
+        "selectedFolders": [
+          "components",
+          "utils",
+          "pages"
+        ],
+        "selectedFiles": [
+          "README.md",
+          "package.json"
+        ],
+        "excludedFiles": [
+          "components/legacy/OldComponent.tsx",
+          "utils/test-helpers.ts"
+        ]
+      },
+      "maxSize": 100,
+      "includeTree": true
+    }
+  }'
+```
+
+**Use case**: Export entire folders while excluding specific files. Perfect for sharing project structure with selective content inclusion.
+
+#### Example 7: Tree Browsing API
+
+```bash
+# Get directory structure for file picker
+curl "http://localhost:5199/api/tree/children?root=./src&rel=&filter=all&exclude=node_modules"
+
+# Get subdirectory contents (lazy loading)
+curl "http://localhost:5199/api/tree/children?root=./src&rel=components&filter=tsx&exclude=test"
+```
+
+**Response Format**:
+
+```json
+{
+  "nodes": [
+    {
+      "type": "dir",
+      "name": "components",
+      "relPath": "components",
+      "hasChildren": true
+    },
+    {
+      "type": "file",
+      "name": "App.tsx",
+      "relPath": "App.tsx",
+      "size": 2048
+    }
+  ]
+}
+```
+
+**Use case**: Build custom file pickers or implement directory browsing in external applications.
+
 ## 💻 CLI Usage
 
 The tool also supports command-line usage through the `@asafarim/md-exporter` package.
@@ -713,7 +842,60 @@ The web interface uses ASafariM design tokens for consistent styling:
 
 No hardcoded values are used - everything follows the design token system.
 
-## 🚀 Development
+## � Troubleshooting
+
+### Folder Selection Issues
+
+#### Modal shows "0+ files selected" after reopening
+
+**Problem**: Selection count resets to 0+ when reopening modal
+**Solution**: The modal now properly hydrates from `selectionPayload` and preserves state across sessions
+
+#### Child files not checked when folder is selected
+
+**Problem**: Selecting a folder doesn't show child files as checked
+**Solution**: Enable lazy-loading inheritance - children are checked immediately when loaded
+
+#### Ancestor folders not showing indeterminate state
+
+**Problem**: Parent folders remain unchecked when child folders are selected
+**Solution**: Ancestor tri-state is now computed using prefix checks, works even with unloaded children
+
+#### Selected paths not visible in modal
+
+**Problem**: Can't see where selected items are located in the tree
+**Solution**: Auto-expansion feature expands ancestor chains for all selected items
+
+#### Export page shows "0 files" for folder selection
+
+**Problem**: Summary shows incorrect count when folders are selected
+**Solution**: Export page now uses `selectionPayload` as single source of truth
+
+### Common Issues
+
+#### Large directories slow to load
+
+- **Cause**: Lazy-loading loads on demand, but initial root load can be slow
+- **Solution**: Use exclude patterns to filter out large directories (node_modules, dist, etc.)
+
+#### Selection count inconsistent
+
+- **Cause**: Mix of selected files and folders in counting logic
+- **Solution**: Counting now properly excludes files covered by selected folders
+
+#### Modal state not persisting
+
+- **Cause**: State reset during `loadRootNodes` execution
+- **Solution**: Selection state is now preserved during tree loading
+
+### Performance Tips
+
+1. **Use Exclude Patterns**: Filter out unnecessary directories early
+2. **Lazy Loading**: Only expand folders you need to explore
+3. **Folder Selection**: Select folders instead of individual files when possible
+4. **Clear Selection**: Use "Clear Selection" to reset state completely
+
+## � Development
 
 ### Project Structure
 
@@ -758,9 +940,7 @@ No hardcoded values are used - everything follows the design token system.
 - **File Size Limits**: Configurable maximum file size protection
 - **Exclusions**: Default exclusions for sensitive directories (`.git`, `node_modules`)
 
-## 🐛 Troubleshooting
-
-### Common Issues
+### General Issues
 
 **"File not found" error**
 
@@ -791,7 +971,42 @@ Enable debug logging by setting:
 
 ```bash
 DEBUG=direxpo:* pnpm dev
-```
+
+## 📝 Changelog
+
+### v1.5.1 - Advanced Folder Selection
+
+#### ✨ New Features
+
+- **Advanced Folder Selection**: Sophisticated file picker with lazy-loading and tri-state checkboxes
+- **Tri-State Checkboxes**: Folders show checked/indeterminate/unchecked states based on descendant selection
+- **Ancestor Inheritance**: Parent folders automatically show indeterminate state when children are selected
+- **Path Persistence**: Selection state preserved when reopening modal
+- **Auto-Expansion**: Selected items and ancestors automatically expanded for visibility
+- **Exclusion Support**: Uncheck individual files under selected folders to exclude them
+
+#### 🔧 Improvements
+
+- **Lazy-Loading Inheritance**: Children immediately show as checked when loaded under selected parent
+- **Prefix-Based Tri-State**: Folder states computed using path prefix checks, works with unloaded children
+- **Selection Hydration**: Modal properly restores selection from `selectionPayload` on every open
+- **Stable Counting**: Selection counts remain consistent when expanding folders
+- **Single Source of Truth**: Export page uses `selectionPayload` instead of mixed state
+
+#### 🐛 Bug Fixes
+
+- Fixed selection count resetting to 0+ when reopening modal
+- Fixed child files not showing as checked when parent folder selected
+- Fixed ancestor folders not showing indeterminate state for nested selections
+- Fixed selected paths not visible in modal tree
+- Fixed export page showing incorrect counts for folder selections
+
+#### 📚 Documentation
+
+- Added comprehensive folder selection feature documentation
+- Added API examples for advanced selection with exclusions
+- Added troubleshooting guide for common selection issues
+- Added tree browsing API documentation
 
 ## 📝 License
 

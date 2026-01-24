@@ -1,7 +1,7 @@
 import express from 'express';
+import { resolve, join, normalize, sep, relative } from 'path';
+import { stat, mkdir, writeFile, readFile, readdir } from 'fs/promises';
 import { runExport } from '@asafarim/md-exporter';
-import { readFile, writeFile, mkdir, stat } from 'fs/promises';
-import { join, resolve, normalize, sep } from 'path';
 import { discoverFiles, generateTreeSection } from '@asafarim/direxpo-core';
 
 interface ExportOptions {
@@ -14,6 +14,11 @@ interface ExportOptions {
     includeTree?: boolean;
     treeOnly?: boolean;
     selectedFiles?: string[];
+    selectionPayload?: {
+        selectedFiles: string[];
+        selectedFolders: string[];
+        excludedFiles: string[];
+    };
 }
 
 interface SkippedFile {
@@ -167,6 +172,103 @@ async function validateSelectedFiles(
     return { valid, skipped };
 }
 
+async function resolveSelectionPayload(
+    rootAbs: string,
+    payload: { selectedFiles: string[]; selectedFolders: string[]; excludedFiles: string[] },
+    excludePatterns: string[],
+    maxSizeMb: number
+): Promise<{ valid: string[]; skipped: SkippedFile[] }> {
+    const allFiles = new Set<string>();
+    const skipped: SkippedFile[] = [];
+    const maxSizeBytes = maxSizeMb * 1024 * 1024;
+
+    for (const file of payload.selectedFiles) {
+        allFiles.add(file);
+    }
+
+    for (const folder of payload.selectedFolders) {
+        const folderAbs = resolveWithinRoot(rootAbs, folder);
+        if (!folderAbs) {
+            skipped.push({ relPath: folder, reason: 'Invalid folder path' });
+            continue;
+        }
+
+        try {
+            const files = await getAllFilesInFolder(folderAbs, rootAbs, excludePatterns);
+            files.forEach(f => allFiles.add(f));
+        } catch (error) {
+            skipped.push({ relPath: folder, reason: 'Failed to read folder' });
+        }
+    }
+
+    for (const excluded of payload.excludedFiles) {
+        allFiles.delete(excluded);
+    }
+
+    const valid: string[] = [];
+    for (const relPath of allFiles) {
+        const fullPath = resolveWithinRoot(rootAbs, relPath);
+        if (!fullPath) {
+            skipped.push({ relPath, reason: 'Invalid path' });
+            continue;
+        }
+
+        if (isExcluded(relPath, excludePatterns)) {
+            skipped.push({ relPath, reason: 'Excluded by pattern' });
+            continue;
+        }
+
+        try {
+            const stats = await stat(fullPath);
+            if (!stats.isFile()) {
+                skipped.push({ relPath, reason: 'Not a file' });
+                continue;
+            }
+
+            if (maxSizeBytes > 0 && stats.size > maxSizeBytes) {
+                skipped.push({ relPath, reason: `Exceeds max size (${maxSizeMb}MB)` });
+                continue;
+            }
+
+            valid.push(relPath);
+        } catch (error) {
+            skipped.push({ relPath, reason: 'File not found or inaccessible' });
+        }
+    }
+
+    return { valid, skipped };
+}
+
+async function getAllFilesInFolder(
+    folderAbs: string,
+    rootAbs: string,
+    excludePatterns: string[]
+): Promise<string[]> {
+    const files: string[] = [];
+    
+    async function traverse(dirPath: string) {
+        const entries = await readdir(dirPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+            const fullPath = join(dirPath, entry.name);
+            const relPath = relative(rootAbs, fullPath).replace(/\\/g, '/');
+            
+            if (isExcluded(relPath, excludePatterns)) {
+                continue;
+            }
+
+            if (entry.isDirectory()) {
+                await traverse(fullPath);
+            } else if (entry.isFile()) {
+                files.push(relPath);
+            }
+        }
+    }
+    
+    await traverse(folderAbs);
+    return files;
+}
+
 async function exportSelectedFiles(
     rootAbs: string,
     relPaths: string[],
@@ -235,7 +337,7 @@ export function createExportRouter(opts: { outputDir?: string } = {}) {
     router.post('/run', async (req, res) => {
         try {
             const { options }: { options: ExportOptions } = req.body;
-            const { includeTree, treeOnly, selectedFiles, ...baseOptions } = options;
+            const { includeTree, treeOnly, selectionPayload, ...baseOptions } = options;
             
             const rootAbs = resolveRoot(baseOptions.targetPath);
             const excludePatterns = parseExcludePatterns(baseOptions.exclude);
@@ -244,10 +346,15 @@ export function createExportRouter(opts: { outputDir?: string } = {}) {
             let filePaths: string[] = [];
             let skipped: SkippedFile[] = [];
             
-            if (selectedFiles && selectedFiles.length > 0) {
-                const validation = await validateSelectedFiles(rootAbs, selectedFiles, excludePatterns, maxSizeMb);
-                filePaths = validation.valid;
-                skipped = validation.skipped;
+            if (selectionPayload) {
+                const result = await resolveSelectionPayload(
+                    rootAbs,
+                    selectionPayload,
+                    excludePatterns,
+                    maxSizeMb
+                );
+                filePaths = result.valid;
+                skipped = result.skipped;
                 
                 if (filePaths.length === 0) {
                     return res.status(400).json({

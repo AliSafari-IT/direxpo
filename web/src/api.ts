@@ -12,7 +12,7 @@ export interface RunExportResponse {
 }
 
 export async function runExport(options: RunOptions): Promise<RunExportResponse> {
-    const { includeTree, maxSize, selectedFiles, ...baseOptions } = options as any;
+    const { includeTree, maxSize, selectionPayload, ...baseOptions } = options as any;
 
     const response = await fetch('/api/run', {
         method: 'POST',
@@ -22,7 +22,7 @@ export async function runExport(options: RunOptions): Promise<RunExportResponse>
                 ...baseOptions,
                 maxSize: maxSize ? maxSize * 1024 * 1024 : undefined,
                 includeTree,
-                selectedFiles,
+                selectionPayload,
             }
         }),
     });

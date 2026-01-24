@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './FilePickerModal.css';
 
 interface TreeNode {
@@ -9,14 +9,41 @@ interface TreeNode {
     hasChildren?: boolean;
 }
 
+export interface SelectionPayload {
+    selectedFiles: string[];
+    selectedFolders: string[];
+    excludedFiles: string[];
+}
+
+export interface SelectionStats {
+    effectiveFiles: number;
+    hasUnloadedFolders: boolean;
+}
+
+function normalizePath(path: string): string {
+    if (!path) return '';
+    return path.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+/g, '/');
+}
+
+function isFolderEffectivelySelected(folderPath: string, selectedFolders: Set<string>): boolean {
+    if (selectedFolders.has(folderPath)) return true;
+    for (const folder of selectedFolders) {
+        if (folder === '' || folderPath.startsWith(folder + '/')) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
 interface FilePickerModalProps {
     isOpen: boolean;
     targetPath: string;
     excludeCsv: string;
     fileTypeFilter: string;
-    initialSelected: Set<string>;
+    initialPayload?: SelectionPayload | null;
     onCancel: () => void;
-    onApply: (selected: Set<string>) => void;
+    onApply: (payload: SelectionPayload, stats: SelectionStats) => void;
 }
 
 interface LoadedNode extends TreeNode {
@@ -30,23 +57,75 @@ export default function FilePickerModal({
     targetPath,
     excludeCsv,
     fileTypeFilter,
-    initialSelected,
+    initialPayload,
     onCancel,
     onApply
 }: FilePickerModalProps) {
     const [rootNodes, setRootNodes] = useState<LoadedNode[]>([]);
     const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
     const [loadedChildren, setLoadedChildren] = useState<Map<string, TreeNode[]>>(new Map());
-    const [selection, setSelection] = useState<Set<string>>(new Set(initialSelected));
+    const [selectedFiles, setSelectedFiles] = useState<Set<string>>(
+        new Set(initialPayload?.selectedFiles || [])
+    );
+    const [selectedFolders, setSelectedFolders] = useState<Set<string>>(
+        new Set(initialPayload?.selectedFolders || [])
+    );
+    const [excludedFiles, setExcludedFiles] = useState<Set<string>>(
+        new Set(initialPayload?.excludedFiles || [])
+    );
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         if (isOpen && targetPath) {
+            if (!initialPayload) {
+                setSelectedFiles(new Set());
+                setSelectedFolders(new Set());
+                setExcludedFiles(new Set());
+            } else {
+                setSelectedFiles(new Set((initialPayload.selectedFiles || []).map(normalizePath)));
+                setSelectedFolders(new Set((initialPayload.selectedFolders || []).map(normalizePath)));
+                setExcludedFiles(new Set((initialPayload.excludedFiles || []).map(normalizePath)));
+            }
             loadRootNodes();
+            if (initialPayload && (initialPayload.selectedFolders.length > 0 || initialPayload.selectedFiles.length > 0)) {
+                ensurePathsLoadedAndExpanded(initialPayload);
+            }
         }
-    }, [isOpen, targetPath, excludeCsv, fileTypeFilter]);
+    }, [isOpen, targetPath, excludeCsv, fileTypeFilter, initialPayload]);
+
+    const ensurePathsLoadedAndExpanded = async (payload: SelectionPayload) => {
+        const pathsToExpand = new Set<string>();
+        
+        for (const folder of payload.selectedFolders) {
+            const parts = folder.split('/');
+            for (let i = 0; i < parts.length - 1; i++) {
+                pathsToExpand.add(parts.slice(0, i + 1).join('/'));
+            }
+        }
+        
+        for (const file of payload.selectedFiles) {
+            const parts = file.split('/');
+            for (let i = 0; i < parts.length - 1; i++) {
+                pathsToExpand.add(parts.slice(0, i + 1).join('/'));
+            }
+        }
+        
+        for (const file of payload.excludedFiles) {
+            const parts = file.split('/');
+            for (let i = 0; i < parts.length - 1; i++) {
+                pathsToExpand.add(parts.slice(0, i + 1).join('/'));
+            }
+        }
+        
+        const newExpanded = new Set(expandedDirs);
+        for (const path of pathsToExpand) {
+            newExpanded.add(path);
+            await loadChildren(path);
+        }
+        setExpandedDirs(newExpanded);
+    };
 
     const loadRootNodes = async () => {
         setLoading(true);
@@ -63,8 +142,12 @@ export default function FilePickerModal({
                 throw new Error(`Failed to load: ${response.statusText}`);
             }
             const data = await response.json();
-            setRootNodes(data.nodes);
-            setLoadedChildren(new Map([['', data.nodes]]));
+            const normalizedNodes = data.nodes.map((node: TreeNode) => ({
+                ...node,
+                relPath: normalizePath(node.relPath)
+            }));
+            setRootNodes(normalizedNodes);
+            setLoadedChildren(new Map([['', normalizedNodes]]));
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load directory');
         } finally {
@@ -73,14 +156,15 @@ export default function FilePickerModal({
     };
 
     const loadChildren = async (relPath: string) => {
-        if (loadedChildren.has(relPath)) {
+        const normalizedPath = normalizePath(relPath);
+        if (loadedChildren.has(normalizedPath)) {
             return;
         }
 
         try {
             const params = new URLSearchParams({
                 root: targetPath,
-                rel: relPath,
+                rel: normalizedPath,
                 filter: fileTypeFilter,
                 exclude: excludeCsv
             });
@@ -89,10 +173,38 @@ export default function FilePickerModal({
                 throw new Error(`Failed to load: ${response.statusText}`);
             }
             const data = await response.json();
-            setLoadedChildren(prev => new Map(prev).set(relPath, data.nodes));
+            const normalizedNodes = data.nodes.map((node: TreeNode) => ({
+                ...node,
+                relPath: normalizePath(node.relPath)
+            }));
+            setLoadedChildren(prev => new Map(prev).set(normalizedPath, normalizedNodes));
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load directory');
         }
+    };
+
+    const isFileEffectivelySelected = (filePath: string): boolean => {
+        if (excludedFiles.has(filePath)) return false;
+        if (selectedFiles.has(filePath)) return true;
+        return isFolderEffectivelySelected(filePath, selectedFolders);
+    };
+
+    const getAllLoadedFilesUnder = (folderPath: string): string[] => {
+        const files: string[] = [];
+        const traverse = (path: string) => {
+            const children = loadedChildren.get(path);
+            if (!children) return;
+            
+            for (const child of children) {
+                if (child.type === 'file') {
+                    files.push(child.relPath);
+                } else {
+                    traverse(child.relPath);
+                }
+            }
+        };
+        traverse(folderPath);
+        return files;
     };
 
     const toggleExpand = async (node: TreeNode) => {
@@ -108,25 +220,105 @@ export default function FilePickerModal({
         setExpandedDirs(newExpanded);
     };
 
-    const toggleSelection = (node: TreeNode) => {
-        if (node.type !== 'file') return;
+    const toggleFileSelection = (filePath: string) => {
+        const normalizedPath = normalizePath(filePath);
+        const hasAncestorFolder = Array.from(selectedFolders).some(folder => 
+            normalizedPath.startsWith(folder + '/') || normalizedPath === folder
+        );
 
-        const newSelection = new Set(selection);
-        if (selection.has(node.relPath)) {
-            newSelection.delete(node.relPath);
+        if (hasAncestorFolder) {
+            const newExcluded = new Set(excludedFiles);
+            if (excludedFiles.has(normalizedPath)) {
+                newExcluded.delete(normalizedPath);
+            } else {
+                newExcluded.add(normalizedPath);
+            }
+            setExcludedFiles(newExcluded);
         } else {
-            newSelection.add(node.relPath);
+            const newSelected = new Set(selectedFiles);
+            if (selectedFiles.has(normalizedPath)) {
+                newSelected.delete(normalizedPath);
+            } else {
+                newSelected.add(normalizedPath);
+            }
+            setSelectedFiles(newSelected);
         }
-        console.log('FilePickerModal - Toggle selection:', node.relPath, 'New selection size:', newSelection.size);
-        setSelection(newSelection);
+    };
+
+    const toggleFolderSelection = (folderPath: string) => {
+        const normalizedFolder = normalizePath(folderPath);
+        const newFolders = new Set(selectedFolders);
+        const newFiles = new Set(selectedFiles);
+        const newExcluded = new Set(excludedFiles);
+
+        if (selectedFolders.has(normalizedFolder)) {
+            newFolders.delete(normalizedFolder);
+            Array.from(excludedFiles).forEach(path => {
+                if (path.startsWith(normalizedFolder + '/') || path === normalizedFolder) {
+                    newExcluded.delete(path);
+                }
+            });
+        } else {
+            newFolders.add(normalizedFolder);
+            Array.from(selectedFiles).forEach(path => {
+                if (path.startsWith(normalizedFolder + '/') || path === normalizedFolder) {
+                    newFiles.delete(path);
+                }
+            });
+            Array.from(excludedFiles).forEach(path => {
+                if (path.startsWith(normalizedFolder + '/') || path === normalizedFolder) {
+                    newExcluded.delete(path);
+                }
+            });
+        }
+
+        setSelectedFolders(newFolders);
+        setSelectedFiles(newFiles);
+        setExcludedFiles(newExcluded);
+    };
+
+    const getFolderCheckState = (folderPath: string): { checked: boolean; indeterminate: boolean } => {
+        const isEffectivelySelected = isFolderEffectivelySelected(folderPath, selectedFolders);
+        
+        if (isEffectivelySelected) {
+            const loadedFiles = getAllLoadedFilesUnder(folderPath);
+            if (loadedFiles.length === 0) {
+                return { checked: true, indeterminate: false };
+            }
+            const allSelected = loadedFiles.every(f => isFileEffectivelySelected(f));
+            if (allSelected) {
+                return { checked: true, indeterminate: false };
+            } else {
+                return { checked: true, indeterminate: true };
+            }
+        }
+
+        const hasSelectedDescendantFolder = Array.from(selectedFolders).some(f => f.startsWith(folderPath + '/'));
+        const hasSelectedDescendantFile = Array.from(selectedFiles).some(f => f.startsWith(folderPath + '/'));
+        const hasExcludedDescendantFile = Array.from(excludedFiles).some(f => f.startsWith(folderPath + '/'));
+        
+        if (hasSelectedDescendantFolder || hasSelectedDescendantFile || hasExcludedDescendantFile) {
+            return { checked: false, indeterminate: true };
+        }
+
+        const loadedFiles = getAllLoadedFilesUnder(folderPath);
+        const selectedCount = loadedFiles.filter(f => isFileEffectivelySelected(f)).length;
+        
+        if (selectedCount === 0) {
+            return { checked: false, indeterminate: false };
+        } else if (selectedCount === loadedFiles.length) {
+            return { checked: true, indeterminate: false };
+        } else {
+            return { checked: false, indeterminate: true };
+        }
     };
 
     const selectAll = (nodes: TreeNode[]) => {
-        const newSelection = new Set(selection);
+        const newFiles = new Set(selectedFiles);
         const addFiles = (nodeList: TreeNode[]) => {
             for (const node of nodeList) {
                 if (node.type === 'file') {
-                    newSelection.add(node.relPath);
+                    newFiles.add(node.relPath);
                 }
                 const children = loadedChildren.get(node.relPath);
                 if (children) {
@@ -135,16 +327,73 @@ export default function FilePickerModal({
             }
         };
         addFiles(nodes);
-        setSelection(newSelection);
+        setSelectedFiles(newFiles);
     };
 
     const clearSelection = () => {
-        setSelection(new Set());
+        setSelectedFiles(new Set());
+        setSelectedFolders(new Set());
+        setExcludedFiles(new Set());
+    };
+
+    const getEffectiveSelectionCount = (): { count: number; hasUnloadedFolders: boolean } => {
+        let count = 0;
+        const countedFiles = new Set<string>();
+        let hasUnloadedFolders = false;
+
+        for (const file of selectedFiles) {
+            const hasAncestor = Array.from(selectedFolders).some(f => file.startsWith(f + '/'));
+            if (!hasAncestor && !excludedFiles.has(file)) {
+                countedFiles.add(file);
+                count++;
+            }
+        }
+
+        const countFilesUnder = (folderPath: string): boolean => {
+            const children = loadedChildren.get(folderPath);
+            if (!children) {
+                return true;
+            }
+            
+            let hasUnloadedSubfolders = false;
+            for (const child of children) {
+                if (child.type === 'file') {
+                    if (!excludedFiles.has(child.relPath) && !countedFiles.has(child.relPath)) {
+                        countedFiles.add(child.relPath);
+                        count++;
+                    }
+                } else {
+                    const isUnloaded = countFilesUnder(child.relPath);
+                    if (isUnloaded) {
+                        hasUnloadedSubfolders = true;
+                    }
+                }
+            }
+            return hasUnloadedSubfolders;
+        };
+
+        for (const folder of selectedFolders) {
+            const isUnloaded = countFilesUnder(folder);
+            if (isUnloaded) {
+                hasUnloadedFolders = true;
+            }
+        }
+
+        return { count, hasUnloadedFolders };
     };
 
     const handleApply = () => {
-        console.log('FilePickerModal - Apply clicked, selection:', Array.from(selection));
-        onApply(selection);
+        const { count, hasUnloadedFolders } = getEffectiveSelectionCount();
+        const payload: SelectionPayload = {
+            selectedFiles: Array.from(selectedFiles),
+            selectedFolders: Array.from(selectedFolders),
+            excludedFiles: Array.from(excludedFiles)
+        };
+        const stats: SelectionStats = {
+            effectiveFiles: count,
+            hasUnloadedFolders
+        };
+        onApply(payload, stats);
     };
 
     const matchesSearch = (node: TreeNode): boolean => {
@@ -158,7 +407,8 @@ export default function FilePickerModal({
             .map(node => {
                 const isExpanded = expandedDirs.has(node.relPath);
                 const children = loadedChildren.get(node.relPath);
-                const isSelected = selection.has(node.relPath);
+                const filteredChildren = children?.filter(matchesSearch);
+                const hasVisibleChildren = filteredChildren && filteredChildren.length > 0;
 
                 return (
                     <div key={node.relPath} className="tree-node">
@@ -174,8 +424,13 @@ export default function FilePickerModal({
                                         aria-expanded={isExpanded}
                                         aria-label={isExpanded ? 'Collapse' : 'Expand'}
                                     >
-                                        {isExpanded ? '▼' : '▶'}
+                                        {isExpanded && hasVisibleChildren ? '▼' : '▶'}
                                     </button>
+                                    <FolderCheckbox
+                                        folderPath={node.relPath}
+                                        checkState={getFolderCheckState(node.relPath)}
+                                        onToggle={() => toggleFolderSelection(node.relPath)}
+                                    />
                                     <span className="node-icon">📁</span>
                                     <span className="node-name">{node.name}</span>
                                 </>
@@ -183,8 +438,8 @@ export default function FilePickerModal({
                                 <>
                                     <input
                                         type="checkbox"
-                                        checked={isSelected}
-                                        onChange={() => toggleSelection(node)}
+                                        checked={isFileEffectivelySelected(node.relPath)}
+                                        onChange={() => toggleFileSelection(node.relPath)}
                                         className="file-checkbox"
                                     />
                                     <span className="node-icon">📄</span>
@@ -197,15 +452,39 @@ export default function FilePickerModal({
                                 </>
                             )}
                         </div>
-                        {node.type === 'dir' && isExpanded && children && (
+                        {node.type === 'dir' && isExpanded && hasVisibleChildren && (
                             <div className="tree-children">
-                                {renderTree(children, depth + 1)}
+                                {renderTree(filteredChildren, depth + 1)}
                             </div>
                         )}
                     </div>
                 );
             });
     };
+
+    function FolderCheckbox({ checkState, onToggle }: { 
+        folderPath: string;
+        checkState: { checked: boolean; indeterminate: boolean };
+        onToggle: () => void;
+    }) {
+        const checkboxRef = useRef<HTMLInputElement>(null);
+
+        useEffect(() => {
+            if (checkboxRef.current) {
+                checkboxRef.current.indeterminate = checkState.indeterminate;
+            }
+        }, [checkState.indeterminate]);
+
+        return (
+            <input
+                ref={checkboxRef}
+                type="checkbox"
+                checked={checkState.checked}
+                onChange={onToggle}
+                className="folder-checkbox"
+            />
+        );
+    }
 
     if (!isOpen) return null;
 
@@ -229,7 +508,10 @@ export default function FilePickerModal({
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                         <div className="selection-info">
-                            {selection.size} file{selection.size !== 1 ? 's' : ''} selected
+                            {(() => {
+                                const { count, hasUnloadedFolders } = getEffectiveSelectionCount();
+                                return `${count}${hasUnloadedFolders ? '+' : ''} file${count !== 1 ? 's' : ''} selected`;
+                            })()}
                         </div>
                     </div>
 
@@ -262,9 +544,12 @@ export default function FilePickerModal({
                     <button 
                         onClick={handleApply} 
                         className="btn-primary"
-                        disabled={selection.size === 0}
+                        disabled={selectedFiles.size === 0 && selectedFolders.size === 0}
                     >
-                        Apply Selection ({selection.size})
+                        Apply Selection ({(() => {
+                            const { count, hasUnloadedFolders } = getEffectiveSelectionCount();
+                            return `${count}${hasUnloadedFolders ? '+' : ''}`;
+                        })()})
                     </button>
                 </div>
             </div>

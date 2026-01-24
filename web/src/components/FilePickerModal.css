@@ -158,8 +158,18 @@
     color: #9ca3af;
 }
 
-.file-checkbox {
+.file-checkbox,
+.folder-checkbox {
+    margin-right: 8px;
     cursor: pointer;
+}
+
+.folder-checkbox {
+    margin-left: 4px;
+}
+
+.file-checkbox,
+.folder-checkbox {
     width: 16px;
     height: 16px;
 }
