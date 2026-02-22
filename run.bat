@@ -1,2 +1,2 @@
-pnpm dev
+pnpm i && pnpm dev
 pause

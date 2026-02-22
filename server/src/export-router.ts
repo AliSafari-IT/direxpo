@@ -1,7 +1,8 @@
 import express from 'express';
 import { resolve, join, normalize, sep, relative } from 'path';
 import { stat, mkdir, writeFile, readFile, readdir } from 'fs/promises';
-import { runExport } from '@asafarim/md-exporter';
+import { createWriteStream } from 'fs';
+import { once } from 'events';
 import { discoverFiles, generateTreeSection } from '@asafarim/direxpo-core';
 
 interface ExportOptions {
@@ -55,16 +56,22 @@ function normalizeOptions(input: any) {
             normalized.exclude = excludeArray;
         }
     }
-    let maxSizeBytes = 0;
+    let maxSizeMb = 0;
     if (input.maxSizeMb !== undefined && typeof input.maxSizeMb === 'number') {
-        maxSizeBytes = input.maxSizeMb;
+        maxSizeMb = input.maxSizeMb;
     } else if (input.maxSize !== undefined && typeof input.maxSize === 'number') {
-        maxSizeBytes = input.maxSize / (1024 * 1024);
+        maxSizeMb = input.maxSize / (1024 * 1024);
     }
-    if (maxSizeBytes > 0 && isFinite(maxSizeBytes)) {
-        normalized.maxSize = maxSizeBytes;
+    if (maxSizeMb > 0 && isFinite(maxSizeMb)) {
+        normalized.maxSize = maxSizeMb;
     }
     return normalized;
+}
+
+async function writeChunk(writeStream: ReturnType<typeof createWriteStream>, chunk: string): Promise<void> {
+    if (!writeStream.write(chunk)) {
+        await once(writeStream, 'drain');
+    }
 }
 
 function resolveRoot(targetPath: string): string {
@@ -124,53 +131,6 @@ function isExcluded(relPath: string, excludePatterns: string[]): boolean {
     return false;
 }
 
-async function validateSelectedFiles(
-    rootAbs: string,
-    selectedFiles: string[],
-    excludePatterns: string[],
-    maxSizeMb: number
-): Promise<{ valid: string[], skipped: SkippedFile[] }> {
-    const valid: string[] = [];
-    const skipped: SkippedFile[] = [];
-    const maxSizeBytes = maxSizeMb * 1024 * 1024;
-    
-    for (const relPath of selectedFiles) {
-        if (!relPath || relPath.trim() === '') {
-            skipped.push({ relPath, reason: 'Empty path' });
-            continue;
-        }
-        
-        const fullPath = resolveWithinRoot(rootAbs, relPath);
-        if (!fullPath) {
-            skipped.push({ relPath, reason: 'Path outside root or invalid' });
-            continue;
-        }
-        
-        if (isExcluded(relPath, excludePatterns)) {
-            skipped.push({ relPath, reason: 'Excluded by pattern' });
-            continue;
-        }
-        
-        try {
-            const stats = await stat(fullPath);
-            if (!stats.isFile()) {
-                skipped.push({ relPath, reason: 'Not a file' });
-                continue;
-            }
-            
-            if (maxSizeBytes > 0 && stats.size > maxSizeBytes) {
-                skipped.push({ relPath, reason: `Exceeds max size (${maxSizeMb}MB)` });
-                continue;
-            }
-            
-            valid.push(relPath);
-        } catch (error) {
-            skipped.push({ relPath, reason: 'File not found or inaccessible' });
-        }
-    }
-    
-    return { valid, skipped };
-}
 
 async function resolveSelectionPayload(
     rootAbs: string,
@@ -282,41 +242,65 @@ async function exportSelectedFiles(
     const filename = `selected_${timestamp}.md`;
     const outputPath = join(outputDir, filename);
     
-    let markdown = '# Selected Files Export\n\n';
-    let bytesRead = 0;
+    let bytesWritten = 0;
     let included = 0;
     
     relPaths.sort();
     
+    const writeStream = createWriteStream(outputPath, 'utf-8');
+    
+    // Write header
+    const header = '# Selected Files Export\n\n';
+    await writeChunk(writeStream, header);
+    bytesWritten += header.length;
+    
+    // Process files sequentially and respect stream backpressure
     for (const relPath of relPaths) {
         const fullPath = join(rootAbs, relPath);
         
         try {
             const content = await readFile(fullPath, 'utf-8');
-            bytesRead += content.length;
             included++;
             
             const ext = relPath.split('.').pop() || '';
-            markdown += `## ${relPath}\n\n`;
-            markdown += '```' + ext + '\n';
-            markdown += content;
-            if (!content.endsWith('\n')) {
-                markdown += '\n';
-            }
-            markdown += '```\n\n';
+            const fileHeader = `## ${relPath}\n\n`;
+            const codeBlockStart = '```' + ext + '\n';
+            const needsNewline = !content.endsWith('\n');
+            const codeBlockEnd = needsNewline ? '\n```\n\n' : '```\n\n';
+            
+            await writeChunk(writeStream, fileHeader);
+            bytesWritten += fileHeader.length;
+            
+            await writeChunk(writeStream, codeBlockStart);
+            bytesWritten += codeBlockStart.length;
+            
+            await writeChunk(writeStream, content);
+            bytesWritten += content.length;
+            
+            await writeChunk(writeStream, codeBlockEnd);
+            bytesWritten += codeBlockEnd.length;
         } catch (error) {
-            markdown += `## ${relPath}\n\n`;
-            markdown += `*Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}*\n\n`;
+            const errorHeader = `## ${relPath}\n\n`;
+            const errorMsg = `*Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}*\n\n`;
+            
+            await writeChunk(writeStream, errorHeader);
+            bytesWritten += errorHeader.length;
+            
+            await writeChunk(writeStream, errorMsg);
+            bytesWritten += errorMsg.length;
         }
     }
-    
-    await writeFile(outputPath, markdown, 'utf-8');
-    
+
+    await new Promise<void>((resolve, reject) => {
+        writeStream.on('error', reject);
+        writeStream.end(() => resolve());
+    });
+
     return {
         outputMarkdownPath: outputPath,
         report: {
             included,
-            bytesWritten: markdown.length,
+            bytesWritten,
             counts: {
                 totalMatched: relPaths.length,
                 included,
@@ -326,6 +310,28 @@ async function exportSelectedFiles(
             }
         }
     };
+}
+
+async function prependToFile(filePath: string, prefix: string): Promise<void> {
+    const tmpPath = filePath + '.tmp';
+    const writeStream = createWriteStream(tmpPath, 'utf-8');
+    await writeChunk(writeStream, prefix);
+    const { createReadStream } = await import('fs');
+    const { rename } = await import('fs/promises');
+    await new Promise<void>((resolve, reject) => {
+        const readStream = createReadStream(filePath);
+        readStream.on('error', reject);
+        readStream.on('end', () => {
+            writeStream.end(() => resolve());
+        });
+        readStream.on('data', (chunk: Buffer | string) => {
+            if (!writeStream.write(chunk)) {
+                readStream.pause();
+                writeStream.once('drain', () => readStream.resume());
+            }
+        });
+    });
+    await rename(tmpPath, filePath);
 }
 
 export function createExportRouter(opts: { outputDir?: string } = {}) {
@@ -340,8 +346,9 @@ export function createExportRouter(opts: { outputDir?: string } = {}) {
             const { includeTree, treeOnly, selectionPayload, ...baseOptions } = options;
             
             const rootAbs = resolveRoot(baseOptions.targetPath);
+            const normalizedOpts = normalizeOptions(baseOptions);
             const excludePatterns = parseExcludePatterns(baseOptions.exclude);
-            const maxSizeMb = baseOptions.maxSizeMb || baseOptions.maxSize || 50;
+            const maxSizeMb = normalizedOpts.maxSize || 50;
             
             let filePaths: string[] = [];
             let skipped: SkippedFile[] = [];
@@ -365,7 +372,6 @@ export function createExportRouter(opts: { outputDir?: string } = {}) {
             }
             
             if (treeOnly) {
-                const normalizedOpts = normalizeOptions(baseOptions);
                 const paths = filePaths.length > 0
                     ? filePaths
                     : await discoverFiles(normalizedOpts);
@@ -391,36 +397,19 @@ export function createExportRouter(opts: { outputDir?: string } = {}) {
                 return;
             }
             
-            const normalizedOpts = normalizeOptions(baseOptions);
-            
-            let result;
-            
-            if (filePaths.length > 0) {
-                result = await exportSelectedFiles(rootAbs, filePaths, OUTPUT_DIR, maxSizeMb);
-            } else {
-                result = await runExport({
-                    ...normalizedOpts,
-                    outDir: OUTPUT_DIR,
-                });
+            if (filePaths.length === 0) {
+                filePaths = await discoverFiles(normalizedOpts);
             }
-            
+
+            let result = await exportSelectedFiles(rootAbs, filePaths, OUTPUT_DIR, maxSizeMb);
+
             if (includeTree && result.outputMarkdownPath) {
-                const paths = filePaths.length > 0
-                    ? filePaths
-                    : await discoverFiles(normalizedOpts);
-                if (paths.length) {
-                    try {
-                        const markdownContent = await readFile(result.outputMarkdownPath, 'utf-8');
-                        const treeSection = generateTreeSection(paths, baseOptions.targetPath);
-                        if (treeSection) {
-                            await writeFile(
-                                result.outputMarkdownPath,
-                                treeSection + '\n' + markdownContent,
-                                'utf-8'
-                            );
-                        }
-                    } catch {
+                try {
+                    const treeSection = generateTreeSection(filePaths, baseOptions.targetPath);
+                    if (treeSection) {
+                        await prependToFile(result.outputMarkdownPath, treeSection + '\n');
                     }
+                } catch {
                 }
             }
             
