@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { ExportOptions } from '@asafarim/md-exporter';
 import { runExport, downloadMarkdown, getMarkdownContent, openFile } from '../api';
 import FilePickerModal, { type SelectionPayload, type SelectionStats } from '../components/FilePickerModal';
+import ErrorAlert from '../components/ErrorAlert';
 import './ExportPage.css';
 
 export default function ExportPage() {
@@ -464,7 +465,7 @@ export default function ExportPage() {
                         </button>
                     </div>
 
-                    {error && <div className="alert alert-error">{error}</div>}
+                    {error && <ErrorAlert error={error} onDismiss={() => setError('')} />}
 
                     {result && (
                         <div className="export-result" ref={resultRef}>

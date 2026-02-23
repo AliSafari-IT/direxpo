@@ -112,10 +112,20 @@ export function createTreeRouter() {
             if (!targetPath) {
                 return res.status(400).json({ error: 'Invalid path' });
             }
-            
-            const stats = await stat(targetPath);
-            if (!stats.isDirectory()) {
-                return res.status(400).json({ error: 'Path is not a directory' });
+
+            try {
+                const stats = await stat(targetPath);
+                if (!stats.isDirectory()) {
+                    return res.status(400).json({ error: 'Path is not a directory' });
+                }
+            } catch (e: any) {
+                if (e.code === 'ENOENT') {
+                    return res.status(400).json({ error: `Path does not exist: ${relPath || root}` });
+                }
+                if (e.code === 'EACCES' || e.code === 'EPERM') {
+                    return res.status(400).json({ error: `Permission denied: ${relPath || root}` });
+                }
+                throw e;
             }
             
             const entries = await readdir(targetPath, { withFileTypes: true });

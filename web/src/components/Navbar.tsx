@@ -91,8 +91,8 @@ export default function Navbar() {
                             }}
                         >
                             <option value="">Direxpo</option>
-                            <option value="https://www.npmjs.com/package/@asafarim/direxpo"><strong>npm</strong> package</option>
-                            <option value="https://github.com/AliSafari-IT/direxpo"><strong>GitHub</strong> repo</option>
+                            <option value="https://www.npmjs.com/package/@asafarim/direxpo">npm package</option>
+                            <option value="https://github.com/AliSafari-IT/direxpo">GitHub repo</option>
                         </select>
                     </li>
                     <li>

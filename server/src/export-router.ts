@@ -242,17 +242,13 @@ async function exportSelectedFiles(
     const filename = `selected_${timestamp}.md`;
     const outputPath = join(outputDir, filename);
     
-    let bytesWritten = 0;
     let included = 0;
     
     relPaths.sort();
     
     const writeStream = createWriteStream(outputPath, 'utf-8');
     
-    // Write header
-    const header = '# Selected Files Export\n\n';
-    await writeChunk(writeStream, header);
-    bytesWritten += header.length;
+    await writeChunk(writeStream, '# Selected Files Export\n\n');
     
     // Process files sequentially and respect stream backpressure
     for (const relPath of relPaths) {
@@ -263,31 +259,16 @@ async function exportSelectedFiles(
             included++;
             
             const ext = relPath.split('.').pop() || '';
-            const fileHeader = `## ${relPath}\n\n`;
-            const codeBlockStart = '```' + ext + '\n';
             const needsNewline = !content.endsWith('\n');
             const codeBlockEnd = needsNewline ? '\n```\n\n' : '```\n\n';
             
-            await writeChunk(writeStream, fileHeader);
-            bytesWritten += fileHeader.length;
-            
-            await writeChunk(writeStream, codeBlockStart);
-            bytesWritten += codeBlockStart.length;
-            
+            await writeChunk(writeStream, `## ${relPath}\n\n`);
+            await writeChunk(writeStream, '```' + ext + '\n');
             await writeChunk(writeStream, content);
-            bytesWritten += content.length;
-            
             await writeChunk(writeStream, codeBlockEnd);
-            bytesWritten += codeBlockEnd.length;
         } catch (error) {
-            const errorHeader = `## ${relPath}\n\n`;
-            const errorMsg = `*Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}*\n\n`;
-            
-            await writeChunk(writeStream, errorHeader);
-            bytesWritten += errorHeader.length;
-            
-            await writeChunk(writeStream, errorMsg);
-            bytesWritten += errorMsg.length;
+            await writeChunk(writeStream, `## ${relPath}\n\n`);
+            await writeChunk(writeStream, `*Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}*\n\n`);
         }
     }
 
@@ -295,6 +276,10 @@ async function exportSelectedFiles(
         writeStream.on('error', reject);
         writeStream.end(() => resolve());
     });
+
+    // Use the actual on-disk file size — string .length counts UTF-16 code units,
+    // not UTF-8 bytes, and any later prependToFile call would not be counted anyway.
+    const { size: bytesWritten } = await stat(outputPath);
 
     return {
         outputMarkdownPath: outputPath,
@@ -342,10 +327,43 @@ export function createExportRouter(opts: { outputDir?: string } = {}) {
     
     router.post('/run', async (req, res) => {
         try {
-            const { options }: { options: ExportOptions } = req.body;
+            const body = req.body;
+            if (!body || typeof body !== 'object' || !body.options) {
+                return res.status(400).json({ error: 'Request body must contain an options object.' });
+            }
+
+            const { options }: { options: ExportOptions } = body;
+
+            if (!options.targetPath || typeof options.targetPath !== 'string' || !options.targetPath.trim()) {
+                return res.status(400).json({ error: 'targetPath is required and must be a non-empty string.' });
+            }
+
             const { includeTree, treeOnly, selectionPayload, ...baseOptions } = options;
             
             const rootAbs = resolveRoot(baseOptions.targetPath);
+
+            // Validate the target path exists and is a directory before doing any work
+            try {
+                const rootStat = await stat(rootAbs);
+                if (!rootStat.isDirectory()) {
+                    return res.status(400).json({
+                        error: `Target path is not a directory: ${baseOptions.targetPath}`,
+                    });
+                }
+            } catch (e: any) {
+                if (e.code === 'ENOENT') {
+                    return res.status(400).json({
+                        error: `Target path does not exist: ${baseOptions.targetPath}`,
+                    });
+                }
+                if (e.code === 'EACCES' || e.code === 'EPERM') {
+                    return res.status(400).json({
+                        error: `Permission denied reading target path: ${baseOptions.targetPath}`,
+                    });
+                }
+                throw e;
+            }
+
             const normalizedOpts = normalizeOptions(baseOptions);
             const excludePatterns = parseExcludePatterns(baseOptions.exclude);
             const maxSizeMb = normalizedOpts.maxSize || 50;
@@ -383,12 +401,13 @@ export function createExportRouter(opts: { outputDir?: string } = {}) {
                 const filename = `tree_${timestamp}.md`;
                 const outputPath = join(OUTPUT_DIR, filename);
                 await writeFile(outputPath, treeSection, 'utf-8');
+                const { size: treeBytesWritten } = await stat(outputPath);
                 
                 res.json({
                     outputPath,
                     report: {
                         included: paths.length,
-                        bytesWritten: treeSection.length,
+                        bytesWritten: treeBytesWritten,
                         treeOnly: true,
                     },
                     exportedCount: paths.length,
@@ -399,6 +418,11 @@ export function createExportRouter(opts: { outputDir?: string } = {}) {
             
             if (filePaths.length === 0) {
                 filePaths = await discoverFiles(normalizedOpts);
+                if (filePaths.length === 0) {
+                    return res.status(400).json({
+                        error: 'No files matched the current filters. Try changing the File Type filter, adjusting the exclude list, or selecting files manually.',
+                    });
+                }
             }
 
             let result = await exportSelectedFiles(rootAbs, filePaths, OUTPUT_DIR, maxSizeMb);
@@ -412,10 +436,13 @@ export function createExportRouter(opts: { outputDir?: string } = {}) {
                 } catch {
                 }
             }
+
+            // Re-stat after prependToFile so bytesWritten reflects the final on-disk size
+            const { size: finalBytesWritten } = await stat(result.outputMarkdownPath);
             
             res.json({
                 outputPath: result.outputMarkdownPath,
-                report: result.report,
+                report: { ...result.report, bytesWritten: finalBytesWritten },
                 exportedCount: filePaths.length || (result.report as any)?.included || 0,
                 skipped
             });
