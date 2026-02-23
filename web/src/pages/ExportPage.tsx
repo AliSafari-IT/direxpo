@@ -489,6 +489,11 @@ export default function ExportPage() {
                                 <p>
                                     <strong>Files Included:</strong> {result.report?.included}
                                 </p>
+                                {(result.report?.counts?.skippedBinary > 0) && (
+                                    <p>
+                                        <strong>Binary Files Skipped:</strong> {result.report.counts.skippedBinary} <span style={{ color: 'var(--asm-color-text-muted)', fontSize: 'var(--asm-font-size-sm)' }}>(path listed, content omitted)</span>
+                                    </p>
+                                )}
                                 <p>
                                     <strong>Bytes Written:</strong> {result.report?.bytesWritten?.toLocaleString()}
                                 </p>

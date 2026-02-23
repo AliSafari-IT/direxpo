@@ -229,6 +229,72 @@ async function getAllFilesInFolder(
     return files;
 }
 
+// Extensions that are always treated as readable text/code
+const TEXT_EXTENSIONS = new Set([
+    // Web
+    'html', 'htm', 'xhtml', 'xml', 'svg', 'css', 'scss', 'sass', 'less',
+    // Scripts / compiled
+    'js', 'mjs', 'cjs', 'jsx', 'ts', 'tsx', 'vue', 'svelte',
+    // Backend
+    'py', 'rb', 'php', 'java', 'kt', 'kts', 'scala', 'groovy',
+    'cs', 'fs', 'fsx', 'vb', 'cpp', 'cc', 'cxx', 'c', 'h', 'hpp',
+    'go', 'rs', 'swift', 'dart', 'm', 'mm',
+    'lua', 'pl', 'pm', 'r', 'jl', 'ex', 'exs', 'erl', 'hrl',
+    'hs', 'lhs', 'clj', 'cljs', 'elm', 'ml', 'mli',
+    // Shell / config
+    'sh', 'bash', 'zsh', 'fish', 'ps1', 'psm1', 'psd1', 'bat', 'cmd',
+    // Data / config
+    'json', 'json5', 'jsonc', 'yaml', 'yml', 'toml', 'ini', 'cfg',
+    'conf', 'config', 'env', 'properties', 'plist',
+    // Docs / text
+    'md', 'mdx', 'markdown', 'txt', 'rst', 'adoc', 'tex', 'csv', 'tsv',
+    // Build / infra
+    'dockerfile', 'makefile', 'cmake', 'gradle', 'bazel', 'bzl',
+    'tf', 'tfvars', 'hcl', 'nix', 'lock',
+    // Misc code
+    'graphql', 'gql', 'proto', 'thrift', 'avsc', 'wasm_text', 'wat',
+    'sql', 'prisma', 'pug', 'jade', 'haml', 'ejs', 'hbs', 'mustache',
+    'njk', 'twig', 'liquid', 'erb',
+    // Editor / project
+    'editorconfig', 'eslintrc', 'prettierrc', 'babelrc', 'npmrc',
+    'gitignore', 'gitattributes', 'htaccess',
+]);
+
+// Files with no extension that are always text
+const TEXT_BASENAMES = new Set([
+    'dockerfile', 'makefile', 'gemfile', 'rakefile', 'procfile',
+    'vagrantfile', 'brewfile', 'jenkinsfile', 'caddyfile',
+    '.gitignore', '.gitattributes', '.editorconfig', '.npmrc',
+    '.env', '.env.local', '.env.example', '.htaccess',
+]);
+
+async function isBinaryFile(fullPath: string, ext: string): Promise<boolean> {
+    // Known text extension — definitely not binary
+    if (TEXT_EXTENSIONS.has(ext.toLowerCase())) return false;
+
+    // Known text basename
+    const basename = fullPath.split(/[\/\\]/).pop()?.toLowerCase() ?? '';
+    if (TEXT_BASENAMES.has(basename)) return false;
+
+    // Unknown extension: sniff first 8 KB for null bytes
+    try {
+        const { open } = await import('fs/promises');
+        const fh = await open(fullPath, 'r');
+        try {
+            const buf = Buffer.alloc(8192);
+            const { bytesRead } = await fh.read(buf, 0, 8192, 0);
+            for (let i = 0; i < bytesRead; i++) {
+                if (buf[i] === 0) return true;
+            }
+            return false;
+        } finally {
+            await fh.close();
+        }
+    } catch {
+        return true; // Can't read → treat as binary to be safe
+    }
+}
+
 async function exportSelectedFiles(
     rootAbs: string,
     relPaths: string[],
@@ -250,23 +316,34 @@ async function exportSelectedFiles(
     
     await writeChunk(writeStream, '# Selected Files Export\n\n');
     
+    let skippedBinary = 0;
+    let skippedError = 0;
+
     // Process files sequentially and respect stream backpressure
     for (const relPath of relPaths) {
         const fullPath = join(rootAbs, relPath);
-        
+        const ext = relPath.split('.').pop() ?? '';
+
         try {
+            if (await isBinaryFile(fullPath, ext)) {
+                skippedBinary++;
+                await writeChunk(writeStream, `## ${relPath}\n\n`);
+                await writeChunk(writeStream, `> *Binary file — content not exported.*\n\n`);
+                continue;
+            }
+
             const content = await readFile(fullPath, 'utf-8');
             included++;
-            
-            const ext = relPath.split('.').pop() || '';
+
             const needsNewline = !content.endsWith('\n');
             const codeBlockEnd = needsNewline ? '\n```\n\n' : '```\n\n';
-            
+
             await writeChunk(writeStream, `## ${relPath}\n\n`);
             await writeChunk(writeStream, '```' + ext + '\n');
             await writeChunk(writeStream, content);
             await writeChunk(writeStream, codeBlockEnd);
         } catch (error) {
+            skippedError++;
             await writeChunk(writeStream, `## ${relPath}\n\n`);
             await writeChunk(writeStream, `*Error reading file: ${error instanceof Error ? error.message : 'Unknown error'}*\n\n`);
         }
@@ -289,9 +366,9 @@ async function exportSelectedFiles(
             counts: {
                 totalMatched: relPaths.length,
                 included,
-                skippedBinary: 0,
+                skippedBinary,
                 skippedLarge: 0,
-                skippedError: 0
+                skippedError,
             }
         }
     };
